@@ -21,5 +21,5 @@ Shows card random outcomes directly in hover info popups.
 ## Config Settings
 
 - Cards tab: enable/disable Fortune Teller popup replacement per supported card.
-- Display tab: toggle main popup name, effect popup, and card type label.
+- Display tab: toggle main popup name, card info popup, and card type label.
 - Logging tab: toggle info/debug logging.
