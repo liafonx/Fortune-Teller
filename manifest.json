@@ -1,0 +1,9 @@
+{
+  "name": "FortuneTeller",
+  "version_number": "0.1.0",
+  "website_url": "https://github.com/liafo/Fortune-Teller",
+  "description": "Foresee deterministic random card outcomes directly in hover UI.",
+  "dependencies": [
+    "Steamodded-Steamodded-1.0.0~BETA"
+  ]
+}
