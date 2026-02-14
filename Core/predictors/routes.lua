@@ -2,13 +2,13 @@ return function(S)
     local routes_by_key = {
         c_wheel_of_fortune = S.predict_wheel_of_fortune,
         c_judgement = function(card)
-            return S.predict_random_joker(card, nil, nil, 'jud')
+            return S.predict_random_joker(card, nil, nil, 'jud', {bypass_slot_constraint = true})
         end,
         c_soul = function(card)
-            return S.predict_random_joker(card, nil, true, 'sou')
+            return S.predict_random_joker(card, nil, true, 'sou', {bypass_slot_constraint = true})
         end,
         c_wraith = function(card)
-            return S.predict_random_joker(card, 0.99, nil, 'wra')
+            return S.predict_random_joker(card, 0.99, nil, 'wra', {bypass_slot_constraint = true})
         end,
         c_emperor = function(card)
             local amount = card.ability.consumeable and card.ability.consumeable.tarots

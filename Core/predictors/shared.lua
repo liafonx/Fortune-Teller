@@ -296,8 +296,9 @@ return function(FT)
         end)
     end
 
-    function S.predict_random_joker(card, rarity, legendary, key_append)
-        if not U.can_spawn_joker(card) then
+    function S.predict_random_joker(card, rarity, legendary, key_append, opts)
+        local bypass_slot_constraint = opts and opts.bypass_slot_constraint
+        if (not bypass_slot_constraint) and (not U.can_spawn_joker(card)) then
             return nil
         end
 
