@@ -1,28 +1,33 @@
 return function(FT)
     local log = (FT.Logger and FT.Logger.create and FT.Logger.create('CardPopup')) or function() end
 
-    local UI = {
-        outer_padding = 0.05,
-        panel_inner_padding = 0.07,
-        info_box_padding = 0.05,
-        badge_row_padding = 0.03,
-        preview_scale = 0.56,
-        single_card_tag_floor_desktop = 2.05,
-        single_card_tag_floor_touch = 1.95,
-        frame_padding_desktop = 0.18,
-        frame_padding_touch = 0.15,
-        inter_card_gap_desktop = 0.05,
-        inter_card_gap_touch = 0.04,
-        forecast_inner_padding_single = 0.04,
-        forecast_cards_padding_single = 0.03,
-        text_box_height_ratio = 0.82,
-    }
+    local CARD_SCALE = 0.56
+    local function make_layout(cs)
+        local k = cs / 0.56
+        return {
+            preview_w = (G and G.CARD_W and (G.CARD_W * cs)) or 0.56,
+            preview_h = (G and G.CARD_H and (G.CARD_H * cs)) or 0.78,
+            box_padding = 0.05 * k,
+            panel_padding = 0.07 * k,
+            badge_padding = 0.03 * k,
+            frame_padding = 0.18 * k,
+            card_gap = 0.05 * k,
+            forecast_inner_pad = 0.04 * k,
+            forecast_cards_pad = 0.03 * k,
+            text_scale = 0.55 * k,
+            badge_font_scale = 1.2 * k,
+            text_h_ratio = 0.82,
+            gap_height = 0.1 * k,
+            tag_floor = 2.05 * k,
+            emboss_outer = 0.07 * k,
+            emboss_inner = 0.05 * k,
+            corner_outer = 0.12 * k,
+            corner_inner = 0.1 * k,
+        }
+    end
 
     local M = {}
-
-    local function is_touch_ui()
-        return (G and G.F_MOBILE_UI) or (G and G.CONTROLLER and G.CONTROLLER.HID and G.CONTROLLER.HID.touch)
-    end
+    local L
 
     local function localize_effect_name(card, ui_table)
         if ui_table and ui_table.ft_effect_set and ui_table.ft_effect_key then
@@ -47,7 +52,7 @@ return function(FT)
 
     local function add_gap(nodes, width)
         if width and width > 0 then
-            nodes[#nodes + 1] = {n = G.UIT.B, config = {w = width, h = 0.1}}
+            nodes[#nodes + 1] = {n = G.UIT.B, config = {w = width, h = L.gap_height}}
         end
     end
 
@@ -61,22 +66,22 @@ return function(FT)
         }
     end
 
-    local function build_forecast_elements(items, base_preview_w, base_preview_h, touch)
+    local function build_forecast_elements(items)
         local elements = {}
 
         for i = 1, #items do
             local item = items[i]
             if item.kind == 'card' and item.card then
                 elements[#elements + 1] = {
-                    width = base_preview_w,
+                    width = L.preview_w,
                     node = {
                         n = G.UIT.O,
                         config = {object = item.card, can_collide = false},
                     },
                 }
             elseif item.kind == 'text' then
-                local text_width = base_preview_w + 0.18
-                local text_colour = (G and G.C and G.C.UI and G.C.UI.TEXT_LIGHT) or G.C.WHITE
+                local text_width = L.preview_w + L.frame_padding
+                local text_colour = (G and G.C and G.C['UI'] and G.C['UI'].TEXT_LIGHT) or G.C.WHITE
                 elements[#elements + 1] = {
                     width = text_width,
                     node = {
@@ -84,7 +89,7 @@ return function(FT)
                         config = {
                             align = 'cm',
                             minw = text_width,
-                            minh = base_preview_h * UI.text_box_height_ratio,
+                            minh = L.preview_h * L.text_h_ratio,
                             colour = G.C.CLEAR,
                             padding = 0,
                         },
@@ -93,7 +98,7 @@ return function(FT)
                                 n = G.UIT.T,
                                 config = {
                                     text = resolve_text_item(item),
-                                    scale = touch and 0.5 or 0.55,
+                                    scale = L.text_scale,
                                     colour = text_colour,
                                     shadow = true,
                                 },
@@ -114,14 +119,7 @@ return function(FT)
             return empty_layout()
         end
 
-        local touch = is_touch_ui()
-        local base_preview_w = (G and G.CARD_W and (G.CARD_W * UI.preview_scale)) or 0.56
-        local base_preview_h = (G and G.CARD_H and (G.CARD_H * UI.preview_scale)) or 0.78
-        local frame_padding = touch and UI.frame_padding_touch or UI.frame_padding_desktop
-        local inter_card_gap = touch and UI.inter_card_gap_touch or UI.inter_card_gap_desktop
-        local single_card_tag_floor = touch and UI.single_card_tag_floor_touch or UI.single_card_tag_floor_desktop
-
-        local elements = build_forecast_elements(items, base_preview_w, base_preview_h, touch)
+        local elements = build_forecast_elements(items)
         local item_count = #elements
         if item_count < 1 then
             return empty_layout()
@@ -133,14 +131,14 @@ return function(FT)
         end
 
         local forecast_nodes = {}
-        local forecast_inner_padding = UI.forecast_inner_padding_single
-        local forecast_cards_padding = UI.forecast_cards_padding_single
-        local forecast_height = base_preview_h + frame_padding
-        local single_card_slot_width = math.max(base_preview_w + frame_padding, single_card_tag_floor)
+        local forecast_inner_padding = L.forecast_inner_pad
+        local forecast_cards_padding = L.forecast_cards_pad
+        local forecast_height = L.preview_h + L.frame_padding
+        local single_card_slot_width = math.max(L.preview_w + L.frame_padding, L.tag_floor)
         local forecast_width = single_card_slot_width
 
         if item_count > 1 then
-            local equal_gap_width = total_items_width + (item_count - 1) * inter_card_gap + (2 * inter_card_gap)
+            local equal_gap_width = total_items_width + (item_count - 1) * L.card_gap + (2 * L.card_gap)
 
             if equal_gap_width < single_card_slot_width then
                 forecast_width = single_card_slot_width
@@ -152,10 +150,10 @@ return function(FT)
                 end
             else
                 forecast_width = equal_gap_width
-                add_gap(forecast_nodes, inter_card_gap)
+                add_gap(forecast_nodes, L.card_gap)
                 for i = 1, item_count do
                     forecast_nodes[#forecast_nodes + 1] = elements[i].node
-                    add_gap(forecast_nodes, inter_card_gap)
+                    add_gap(forecast_nodes, L.card_gap)
                 end
             end
 
@@ -163,7 +161,7 @@ return function(FT)
             forecast_cards_padding = 0
         else
             forecast_nodes[#forecast_nodes + 1] = elements[1].node
-            forecast_width = math.max(single_card_slot_width, total_items_width + frame_padding)
+            forecast_width = math.max(single_card_slot_width, total_items_width + L.frame_padding)
         end
 
         return {
@@ -183,7 +181,7 @@ return function(FT)
                     or (card.ability.name == 'Planet X' and localize('k_planet_q') or card_type),
                 card_type_colour,
                 nil,
-                1.2
+                L.badge_font_scale
             )
         end
 
@@ -210,9 +208,9 @@ return function(FT)
                     config = {
                         align = 'cm',
                         colour = lighten(G.C.JOKER_GREY, 0.5),
-                        r = 0.1,
-                        padding = UI.info_box_padding,
-                        emboss = 0.05,
+                        r = L.corner_inner,
+                        padding = L.box_padding,
+                        emboss = L.emboss_inner,
                     },
                     nodes = {
                         info_tip_from_rows(rows or {}, title or ''),
@@ -247,9 +245,9 @@ return function(FT)
                         minw = forecast.width,
                         minh = forecast.height,
                         padding = forecast.inner_padding,
-                        r = 0.1,
+                        r = L.corner_inner,
                         colour = mix_colours(G.C.BLACK, G.C.L_BLACK, 0.8),
-                        emboss = 0.05,
+                        emboss = L.emboss_inner,
                     },
                     nodes = {
                         {
@@ -264,6 +262,7 @@ return function(FT)
     end
 
     function M.build_custom_popup(card, aut)
+        L = make_layout(CARD_SCALE)
         local debuffed = card.debuff
         local card_type_colour = get_type_colour(card.config.center or card.config, card)
         local card_type_background =
@@ -275,7 +274,6 @@ return function(FT)
             or G.C.SET[aut.card_type]
             or {0, 1, 1, 1}
 
-        local outer_padding = UI.outer_padding
         local card_type = localize('k_' .. string.lower(aut.card_type))
         local is_playing_card = aut.card_type == 'Enhanced' or aut.card_type == 'Default'
 
@@ -314,15 +312,26 @@ return function(FT)
                     nodes = {
                         {
                             n = G.UIT.R,
-                            config = {padding = outer_padding, r = 0.12, colour = lighten(G.C.JOKER_GREY, 0.5), emboss = 0.07},
+                            config = {
+                                padding = L.box_padding,
+                                r = L.corner_outer,
+                                colour = lighten(G.C.JOKER_GREY, 0.5),
+                                emboss = L.emboss_outer,
+                            },
                             nodes = {
                                 {
                                     n = G.UIT.R,
-                                    config = {align = 'cm', padding = UI.panel_inner_padding, r = 0.1, colour = adjust_alpha(card_type_background, 0.8)},
+                                    config = {
+                                        align = 'cm',
+                                        padding = L.panel_padding,
+                                        r = L.corner_inner,
+                                        colour = adjust_alpha(card_type_background, 0.8),
+                                    },
                                     nodes = {
                                         show_main_popup_name and name_from_rows(aut.name, is_playing_card and G.C.WHITE or nil) or nil,
                                         forecast_row,
-                                        badges[1] and {n = G.UIT.R, config = {align = 'cm', padding = UI.badge_row_padding}, nodes = badges} or nil,
+                                        badges[1] and {n = G.UIT.R, config = {align = 'cm', padding = L.badge_padding}, nodes = badges}
+                                            or nil,
                                     },
                                 },
                             },
