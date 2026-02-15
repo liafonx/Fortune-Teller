@@ -23,11 +23,13 @@ return function(FT)
                 j_invisible = true,
             },
             show_invisible_pretrigger = false,
+            show_purple_seal_preview = true,
         },
         display = {
             show_main_popup_name = false,
             show_effect_popup = true,
             show_type_label = true,
+            hide_all_labels = false,
         },
         logging = {
             verbose = false,
@@ -90,11 +92,19 @@ return function(FT)
         cfg.logging = cfg.logging or {}
 
         local had_verbose_flag = cfg.logging.verbose ~= nil
+        local had_hide_all_labels = cfg.display.hide_all_labels ~= nil
         deep_fill(cfg, defaults)
 
         if not had_verbose_flag and cfg.debug_mode ~= nil then
             cfg.logging.verbose = not not cfg.debug_mode
         end
+
+        if not had_hide_all_labels then
+            cfg.display.hide_all_labels = false
+        end
+
+        cfg.display.hide_all_labels = not not cfg.display.hide_all_labels
+        cfg.display.show_type_label = not cfg.display.hide_all_labels
 
         cfg.logging.verbose = not not cfg.logging.verbose
         cfg.debug_mode = cfg.logging.verbose
@@ -139,6 +149,10 @@ return function(FT)
         return not not (FT.config and FT.config.cards and FT.config.cards.show_invisible_pretrigger)
     end
 
+    function api.show_purple_seal_preview()
+        return not not (FT.config and FT.config.cards and FT.config.cards.show_purple_seal_preview)
+    end
+
     function api.show_main_popup_name()
         return not not (FT.config and FT.config.display and FT.config.display.show_main_popup_name)
     end
@@ -148,7 +162,11 @@ return function(FT)
     end
 
     function api.show_type_label()
-        return not not (FT.config and FT.config.display and FT.config.display.show_type_label)
+        return not api.hide_all_labels()
+    end
+
+    function api.hide_all_labels()
+        return not not (FT.config and FT.config.display and FT.config.display.hide_all_labels)
     end
 
     function api.verbose_logging()

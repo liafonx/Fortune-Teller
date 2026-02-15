@@ -1,7 +1,11 @@
 return function(FT)
     local log = (FT.Logger and FT.Logger.create and FT.Logger.create('CardPopup')) or function() end
+    local render = FT.load_module('UI/card_popup_render.lua')(FT)
 
     local CARD_SCALE = 0.56
+    local DEFAULT_MINI_POPUP_MINW = 1.5
+    local MAX_MINI_POPUP_MINW = 2
+
     local function make_layout(cs)
         local k = cs / 0.56
         return {
@@ -25,22 +29,87 @@ return function(FT)
             emboss_outer = 0.07 * k,
             emboss_inner = 0.05 * k,
             corner_outer = 0.12 * k,
-            corner_inner = 0.1 * k,
+            corner_inner = 0.1,
         }
     end
 
-    local M = {}
-    local L
+    local function normalize_title_text(text)
+        if type(text) ~= 'string' then
+            return nil
+        end
+
+        local normalized = text:gsub('%s+', ' '):gsub('^%s+', ''):gsub('%s+$', '')
+        if normalized == '' then
+            return nil
+        end
+
+        return normalized
+    end
+
+    local function normalized_or(text, fallback)
+        return normalize_title_text(text) or fallback
+    end
+
+    local function clamp(value, min_value, max_value)
+        if value < min_value then
+            return min_value
+        end
+        if value > max_value then
+            return max_value
+        end
+        return value
+    end
+
+    local function visible_title_text_length(text)
+        local s = tostring(text or '')
+        -- Strip Balatro formatting markers so width reflects rendered glyphs.
+        s = s:gsub('{[^}]-}', '')
+        s = s:gsub('#%d+#', '')
+        s = normalize_title_text(s) or ''
+        return #s
+    end
+
+    local function compute_mini_popup_minw(title_text)
+        local len = visible_title_text_length(title_text)
+        local grow = math.max(0, len - 12) * 0.065
+        return clamp(DEFAULT_MINI_POPUP_MINW + grow, DEFAULT_MINI_POPUP_MINW, MAX_MINI_POPUP_MINW)
+    end
 
     local function localize_effect_name(card, ui_table)
+        local explicit_name = ui_table and normalize_title_text(ui_table.ft_effect_name)
+        if explicit_name then
+            return explicit_name
+        end
+
         if ui_table and ui_table.ft_effect_set and ui_table.ft_effect_key then
-            return localize({
+            local ok, value = pcall(localize, {
                 type = 'name_text',
                 set = ui_table.ft_effect_set,
                 key = ui_table.ft_effect_key,
             })
+            if not ok then
+                log(
+                    'warning',
+                    'name_text lookup failed: set=' .. tostring(ui_table.ft_effect_set)
+                        .. ' key=' .. tostring(ui_table.ft_effect_key)
+                        .. ' card=' .. tostring(card and card.ability and card.ability.name)
+                        .. ' err=' .. tostring(value)
+                )
+            elseif value == 'ERROR' then
+                log(
+                    'warning',
+                    'name_text lookup returned ERROR: set=' .. tostring(ui_table.ft_effect_set)
+                        .. ' key=' .. tostring(ui_table.ft_effect_key)
+                        .. ' card=' .. tostring(card and card.ability and card.ability.name)
+                )
+            end
+            local normalized = ok and normalize_title_text(value) or nil
+            if normalized then
+                return normalized
+            end
         end
-        return card and card.ability and card.ability.name or ''
+
+        return normalize_title_text(card and card.ability and card.ability.name) or ''
     end
 
     local function resolve_text_item(item)
@@ -53,9 +122,9 @@ return function(FT)
         return ''
     end
 
-    local function add_gap(nodes, width)
+    local function add_gap(nodes, width, layout)
         if width and width > 0 then
-            nodes[#nodes + 1] = {n = G.UIT.B, config = {w = width, h = L.gap_height}}
+            nodes[#nodes + 1] = {n = G.UIT.B, config = {w = width, h = layout.gap_height}}
         end
     end
 
@@ -69,46 +138,14 @@ return function(FT)
         }
     end
 
-    local function build_forecast_elements(items)
+    local function build_forecast_elements(items, layout)
         local elements = {}
 
         for i = 1, #items do
             local item = items[i]
-            if item.kind == 'card' and item.card then
-                elements[#elements + 1] = {
-                    width = L.preview_w,
-                    node = {
-                        n = G.UIT.O,
-                        config = {object = item.card, can_collide = false},
-                    },
-                }
-            elseif item.kind == 'text' then
-                local text_width = L.preview_w + L.frame_padding
-                local text_colour = (G and G.C and G.C['UI'] and G.C['UI'].TEXT_LIGHT) or G.C.WHITE
-                elements[#elements + 1] = {
-                    width = text_width,
-                    node = {
-                        n = G.UIT.C,
-                        config = {
-                            align = 'cm',
-                            minw = text_width,
-                            minh = L.preview_h * L.text_h_ratio,
-                            colour = G.C.CLEAR,
-                            padding = 0,
-                        },
-                        nodes = {
-                            {
-                                n = G.UIT.T,
-                                config = {
-                                    text = resolve_text_item(item),
-                                    scale = L.text_scale,
-                                    colour = text_colour,
-                                    shadow = true,
-                                },
-                            },
-                        },
-                    },
-                }
+            local element = render.make_forecast_element(item, layout, resolve_text_item, normalize_title_text)
+            if element then
+                elements[#elements + 1] = element
             else
                 log('warning', 'Unknown forecast item kind at index ' .. tostring(i) .. ': ' .. tostring(item and item.kind))
             end
@@ -117,12 +154,12 @@ return function(FT)
         return elements
     end
 
-    local function compute_forecast_layout(items)
+    local function compute_forecast_layout(items, layout)
         if not (items and #items > 0) then
             return empty_layout()
         end
 
-        local elements = build_forecast_elements(items)
+        local elements = build_forecast_elements(items, layout)
         local item_count = #elements
         if item_count < 1 then
             return empty_layout()
@@ -134,36 +171,36 @@ return function(FT)
         end
 
         local forecast_nodes = {}
-        local forecast_inner_padding = L.forecast_inner_pad
-        local forecast_cards_padding = L.forecast_cards_pad
-        local forecast_height = L.preview_h + L.frame_padding
-        local single_card_slot_width = math.max(L.preview_w + L.frame_padding, L.tag_floor)
+        local forecast_inner_padding = layout.forecast_inner_pad
+        local forecast_cards_padding = layout.forecast_cards_pad
+        local forecast_height = layout.preview_h + layout.frame_padding
+        local single_card_slot_width = math.max(layout.preview_w + layout.frame_padding, layout.tag_floor)
         local forecast_width = single_card_slot_width
 
         if item_count == 2 then
-            forecast_width = total_items_width + (2 * L.two_side_gap) + L.two_middle_gap
-            add_gap(forecast_nodes, L.two_side_gap)
+            forecast_width = total_items_width + (2 * layout.two_side_gap) + layout.two_middle_gap
+            add_gap(forecast_nodes, layout.two_side_gap, layout)
             forecast_nodes[#forecast_nodes + 1] = elements[1].node
-            add_gap(forecast_nodes, L.two_middle_gap)
+            add_gap(forecast_nodes, layout.two_middle_gap, layout)
             forecast_nodes[#forecast_nodes + 1] = elements[2].node
-            add_gap(forecast_nodes, L.two_side_gap)
+            add_gap(forecast_nodes, layout.two_side_gap, layout)
             forecast_inner_padding = 0
             forecast_cards_padding = 0
         elseif item_count > 2 then
-            forecast_width = total_items_width + (2 * L.multi_side_gap) + ((item_count - 1) * L.multi_gap)
-            add_gap(forecast_nodes, L.multi_side_gap)
+            forecast_width = total_items_width + (2 * layout.multi_side_gap) + ((item_count - 1) * layout.multi_gap)
+            add_gap(forecast_nodes, layout.multi_side_gap, layout)
             for i = 1, item_count do
                 forecast_nodes[#forecast_nodes + 1] = elements[i].node
                 if i < item_count then
-                    add_gap(forecast_nodes, L.multi_gap)
+                    add_gap(forecast_nodes, layout.multi_gap, layout)
                 end
             end
-            add_gap(forecast_nodes, L.multi_side_gap)
+            add_gap(forecast_nodes, layout.multi_side_gap, layout)
             forecast_inner_padding = 0
             forecast_cards_padding = 0
         else
             forecast_nodes[#forecast_nodes + 1] = elements[1].node
-            forecast_width = math.max(single_card_slot_width, total_items_width + L.frame_padding)
+            forecast_width = math.max(single_card_slot_width, total_items_width + layout.frame_padding)
         end
 
         return {
@@ -175,87 +212,143 @@ return function(FT)
         }
     end
 
-    local function build_badges(card, aut, card_type, card_type_colour, show_type_label)
+    local function normalize_badge_key(raw_key)
+        if type(raw_key) ~= 'string' then
+            return raw_key
+        end
+
+        local key = raw_key
+        if #key >= 15 and key:sub(#key - 14) == '_SMODS_INTERNAL' then
+            if key:sub(1, 9) == 'negative_' then
+                key = 'negative'
+            else
+                local first_underscore = key:find('_')
+                local second_underscore = first_underscore and key:find('_', first_underscore + 1) or nil
+                if second_underscore then
+                    key = key:sub(1, second_underscore - 1)
+                else
+                    key = key:sub(1, #key - 15)
+                end
+            end
+        end
+
+        if key == 'negative_consumable' then
+            key = 'negative'
+        end
+
+        return key
+    end
+
+    local function build_badges(card, aut, card_type, card_type_colour, hide_all_labels, layout)
         local badges = {}
-        if show_type_label and aut.badges and (aut.badges.card_type or aut.badges.force_rarity) then
+        if hide_all_labels then
+            return badges
+        end
+
+        if aut.badges and (aut.badges.card_type or aut.badges.force_rarity) then
             badges[#badges + 1] = create_badge(
-                ((card.ability.name == 'Pluto' or card.ability.name == 'Ceres' or card.ability.name == 'Eris') and localize('k_dwarf_planet'))
-                    or (card.ability.name == 'Planet X' and localize('k_planet_q') or card_type),
+                normalized_or(card_type, card_type),
                 card_type_colour,
                 nil,
-                L.badge_font_scale
+                layout.badge_font_scale
             )
         end
 
         if aut.badges then
             for _, badge in ipairs(aut.badges) do
-                local key = badge
-                if key == 'negative_consumable' then
-                    key = 'negative'
+                local raw_key = badge
+                local key = normalize_badge_key(raw_key)
+                local badge_text = localize(key, 'labels')
+                if key == 'negative' then
+                    log(
+                        'debug',
+                        'negative badge probe: raw=' .. tostring(raw_key)
+                            .. ' mapped=' .. tostring(key)
+                            .. ' text=' .. tostring(badge_text)
+                            .. ' card=' .. tostring(card and card.ability and card.ability.name)
+                            .. ' center=' .. tostring(card and card.config and card.config.center and card.config.center.key)
+                    )
                 end
-                badges[#badges + 1] = create_badge(localize(key, 'labels'), get_badge_colour(key))
+                if badge_text == 'ERROR' then
+                    log(
+                        'warning',
+                        'badge label lookup returned ERROR: raw=' .. tostring(raw_key)
+                            .. ' mapped=' .. tostring(key)
+                            .. ' card=' .. tostring(card and card.ability and card.ability.name)
+                            .. ' center_set=' .. tostring(card and card.config and card.config.center and card.config.center.set)
+                            .. ' center_key=' .. tostring(card and card.config and card.config.center and card.config.center.key)
+                            .. ' edition=' .. tostring(card and card.edition and card.edition.type)
+                    )
+                    if key == 'negative' then
+                        local is_negative_consumable = type(raw_key) == 'string' and raw_key:sub(1, 19) == 'negative_consumable'
+                        local edition_probe_key = is_negative_consumable and 'e_negative_consumable' or 'e_negative'
+                        local edition_name = localize({type = 'name_text', set = 'Edition', key = edition_probe_key})
+                        log(
+                            'warning',
+                            'edition name probe: key=' .. tostring(edition_probe_key)
+                                .. ' text=' .. tostring(edition_name)
+                        )
+                    end
+                end
+                badges[#badges + 1] = create_badge(normalized_or(badge_text, badge_text), get_badge_colour(key))
             end
         end
 
         return badges
     end
 
-    local function add_info_box(info_boxes, rows, title)
-        info_boxes[#info_boxes + 1] = {
-            n = G.UIT.R,
-            config = {align = 'cm'},
-            nodes = {
-                {
-                    n = G.UIT.R,
-                    config = {
-                        align = 'cm',
-                        colour = lighten(G.C.JOKER_GREY, 0.5),
-                        r = L.corner_inner,
-                        padding = L.box_padding,
-                        emboss = L.emboss_inner,
-                    },
-                    nodes = {
-                        info_tip_from_rows(rows or {}, title or ''),
-                    },
-                },
-            },
-        }
-    end
-
-    local function build_infotips(card, aut)
+    local function build_infotips(card, aut, layout)
         local info_boxes = {}
-        add_info_box(info_boxes, aut.main or {}, localize_effect_name(card, aut))
+        render.add_info_box(info_boxes, aut.main or {}, localize_effect_name(card, aut), layout, compute_mini_popup_minw)
 
         if aut.info then
             for _, info in ipairs(aut.info) do
-                add_info_box(info_boxes, info, info and info.name)
+                render.add_info_box(info_boxes, info, info and info.name, layout, compute_mini_popup_minw)
             end
         end
 
         return info_boxes
     end
 
-    local function build_forecast_slot(forecast)
+    local function build_popup_tree(layout, card_type_background, info_tip_ref, show_main_popup_name, aut, is_playing_card, forecast_row, badges)
         return {
-            n = G.UIT.R,
-            config = {align = 'cm', padding = 0},
+            n = G.UIT.ROOT,
+            config = {align = 'cm', colour = G.C.CLEAR},
             nodes = {
                 {
-                    n = G.UIT.R,
+                    n = G.UIT.C,
                     config = {
                         align = 'cm',
-                        minw = forecast.width,
-                        minh = forecast.height,
-                        padding = forecast.inner_padding,
-                        r = L.corner_inner,
-                        colour = mix_colours(G.C.BLACK, G.C.L_BLACK, 0.8),
-                        emboss = L.emboss_inner,
+                        func = info_tip_ref and 'show_infotip' or nil,
+                        object = info_tip_ref and Moveable() or nil,
+                        ref_table = info_tip_ref,
                     },
                     nodes = {
                         {
                             n = G.UIT.R,
-                            config = {align = 'cm', padding = forecast.cards_padding},
-                            nodes = forecast.nodes,
+                            config = {
+                                padding = layout.box_padding,
+                                r = layout.corner_outer,
+                                colour = lighten(G.C.JOKER_GREY, 0.5),
+                                emboss = layout.emboss_outer,
+                            },
+                            nodes = {
+                                {
+                                    n = G.UIT.R,
+                                    config = {
+                                        align = 'cm',
+                                        padding = layout.panel_padding,
+                                        r = layout.corner_inner,
+                                        colour = adjust_alpha(card_type_background, 0.8),
+                                    },
+                                    nodes = {
+                                        show_main_popup_name and name_from_rows(aut.name, is_playing_card and G.C.WHITE or nil) or nil,
+                                        forecast_row,
+                                        badges[1] and {n = G.UIT.R, config = {align = 'cm', padding = layout.badge_padding}, nodes = badges}
+                                            or nil,
+                                    },
+                                },
+                            },
                         },
                     },
                 },
@@ -263,8 +356,10 @@ return function(FT)
         }
     end
 
+    local M = {}
+
     function M.build_custom_popup(card, aut)
-        L = make_layout(CARD_SCALE)
+        local layout = make_layout(CARD_SCALE)
         local debuffed = card.debuff
         local card_type_colour = get_type_colour(card.config.center or card.config, card)
         local card_type_background =
@@ -287,61 +382,28 @@ return function(FT)
         end
         card_type = (debuffed and aut.card_type ~= 'Enhanced') and localize('k_debuffed') or card_type
 
-        local show_type_label = FT.config_api and FT.config_api.show_type_label and FT.config_api.show_type_label()
-        local badges = build_badges(card, aut, card_type, card_type_colour, show_type_label)
+        local hide_all_labels = FT.config_api and FT.config_api.hide_all_labels and FT.config_api.hide_all_labels()
+        local badges = build_badges(card, aut, card_type, card_type_colour, hide_all_labels, layout)
 
         local show_effect_popup = FT.config_api and FT.config_api.show_effect_popup and FT.config_api.show_effect_popup()
-        local info_boxes = show_effect_popup and build_infotips(card, aut) or {}
-        local infotip_ref = show_effect_popup and next(info_boxes) and info_boxes or nil
+        local info_boxes = show_effect_popup and build_infotips(card, aut, layout) or {}
+        local info_tip_ref = show_effect_popup and next(info_boxes) and info_boxes or nil
 
-        local forecast = compute_forecast_layout(aut.ft_forecast_items)
-        local forecast_row = build_forecast_slot(forecast)
+        local forecast = compute_forecast_layout(aut.ft_forecast_items, layout)
+        local forecast_row = render.build_forecast_slot(forecast, layout)
 
         local show_main_popup_name = FT.config_api and FT.config_api.show_main_popup_name and FT.config_api.show_main_popup_name()
 
-        return {
-            n = G.UIT.ROOT,
-            config = {align = 'cm', colour = G.C.CLEAR},
-            nodes = {
-                {
-                    n = G.UIT.C,
-                    config = {
-                        align = 'cm',
-                        func = infotip_ref and 'show_infotip' or nil,
-                        object = infotip_ref and Moveable() or nil,
-                        ref_table = infotip_ref,
-                    },
-                    nodes = {
-                        {
-                            n = G.UIT.R,
-                            config = {
-                                padding = L.box_padding,
-                                r = L.corner_outer,
-                                colour = lighten(G.C.JOKER_GREY, 0.5),
-                                emboss = L.emboss_outer,
-                            },
-                            nodes = {
-                                {
-                                    n = G.UIT.R,
-                                    config = {
-                                        align = 'cm',
-                                        padding = L.panel_padding,
-                                        r = L.corner_inner,
-                                        colour = adjust_alpha(card_type_background, 0.8),
-                                    },
-                                    nodes = {
-                                        show_main_popup_name and name_from_rows(aut.name, is_playing_card and G.C.WHITE or nil) or nil,
-                                        forecast_row,
-                                        badges[1] and {n = G.UIT.R, config = {align = 'cm', padding = L.badge_padding}, nodes = badges}
-                                            or nil,
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        }
+        return build_popup_tree(
+            layout,
+            card_type_background,
+            info_tip_ref,
+            show_main_popup_name,
+            aut,
+            is_playing_card,
+            forecast_row,
+            badges
+        )
     end
 
     return M

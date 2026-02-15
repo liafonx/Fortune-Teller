@@ -5,6 +5,8 @@ return function(FT)
     local S = {}
     local SUIT_KEYS = {'S', 'H', 'D', 'C'}
     local RANK_KEYS = {'2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'}
+    local PURPLE_SEAL_PREVIEW_MAX = 3
+    local PURPLE_SEAL_TAROT_KEY_APPEND = '8ba'
 
     local function get_hand_cards()
         return G and G.hand and G.hand.cards or nil
@@ -32,6 +34,26 @@ return function(FT)
         return {desc}
     end
 
+    local function count_highlighted_purple_seals()
+        local highlighted = G and G.hand and G.hand.highlighted
+        if type(highlighted) ~= 'table' then
+            return 1
+        end
+
+        local count = 0
+        for i = 1, #highlighted do
+            local c = highlighted[i]
+            if c and c.area == G.hand and c.highlighted and c.seal == 'Purple' and not c.debuff then
+                count = count + 1
+            end
+        end
+
+        if count < 1 then
+            return 1
+        end
+        return math.min(PURPLE_SEAL_PREVIEW_MAX, count)
+    end
+
     function S.predict_multi_consumables(card_type, key_append, amount)
         local count = amount or 0
         if count <= 0 then
@@ -49,6 +71,28 @@ return function(FT)
                 end
                 out[#out + 1] = {center = center}
             end
+            return out
+        end)
+    end
+
+    function S.predict_purple_seal_tarot(card)
+        if not (card and card.seal == 'Purple') then
+            return nil
+        end
+
+        return U.with_prediction_snapshot(function()
+            local count = count_highlighted_purple_seals()
+            local out = {}
+
+            for _ = 1, count do
+                local center = U.pick_center('Tarot', nil, nil, nil, PURPLE_SEAL_TAROT_KEY_APPEND)
+                if not center then
+                    log('error', 'Failed to pick Tarot center for purple seal preview sequence')
+                    return nil
+                end
+                out[#out + 1] = {center = center}
+            end
+
             return out
         end)
     end

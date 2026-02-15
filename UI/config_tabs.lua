@@ -64,19 +64,26 @@ return function(FT)
 
     local function toggle_row(label, ref_table, ref_value, callback, opts)
         opts = opts or {}
+        local col_w = opts.col_w or 2.35
         return {
             n = G.UIT.R,
-            config = {align = 'cl', padding = opts.row_padding or 0.01},
+            config = {align = 'cr', padding = opts.row_padding or 0.01},
             nodes = {
-                create_toggle({
-                    label = label,
-                    ref_table = ref_table,
-                    ref_value = ref_value,
-                    callback = callback,
-                    w = opts.w or 2.05,
-                    scale = opts.scale or 0.8,
-                    label_scale = opts.label_scale or 0.35,
-                }),
+                {
+                    n = G.UIT.C,
+                    config = {align = 'tr', minw = col_w, padding = 0},
+                    nodes = {
+                        create_toggle({
+                            label = label,
+                            ref_table = ref_table,
+                            ref_value = ref_value,
+                            callback = callback,
+                            w = opts.w or col_w,
+                            scale = opts.scale or 0.8,
+                            label_scale = opts.label_scale or 0.35,
+                        }),
+                    },
+                },
             },
         }
     end
@@ -150,7 +157,7 @@ return function(FT)
         local rows = {header(loc(title_key, title_fallback))}
         local entries = group_entries(card_entries, group_name)
         split_cols = split_cols or 1
-        local base_toggle_opts = {w = 1.95, scale = 0.76, label_scale = 0.34, row_padding = 0.005}
+        local base_toggle_opts = {w = 2.35, col_w = 2.35, scale = 0.76, label_scale = 0.34, row_padding = 0.005}
 
         if split_cols > 1 and #entries > 1 then
             local per_col = math.ceil(#entries / split_cols)
@@ -208,7 +215,14 @@ return function(FT)
                 cfg.cards,
                 'show_invisible_pretrigger',
                 nil,
-                {w = 2.35, scale = 0.76, label_scale = 0.33, row_padding = 0.006}
+                {w = 2.35, col_w = 2.35, scale = 0.76, label_scale = 0.33, row_padding = 0.006}
+            )
+            rows[#rows + 1] = toggle_row(
+                loc('ft_cfg_purple_seal_preview', 'Show Purple Seal hand preview sequence'),
+                cfg.cards,
+                'show_purple_seal_preview',
+                nil,
+                {w = 2.35, col_w = 2.35, scale = 0.76, label_scale = 0.33, row_padding = 0.006}
             )
         end
 
@@ -261,17 +275,23 @@ return function(FT)
                 toggle_row(
                     loc('ft_cfg_show_main_popup_name', 'Show card name in main popup'),
                     cfg.display,
-                    'show_main_popup_name'
+                    'show_main_popup_name',
+                    nil,
+                    {w = 2.35, col_w = 2.35}
                 ),
                 toggle_row(
                     loc('ft_cfg_show_effect_popup', 'Show small effect popup'),
                     cfg.display,
-                    'show_effect_popup'
+                    'show_effect_popup',
+                    nil,
+                    {w = 2.35, col_w = 2.35}
                 ),
                 toggle_row(
-                    loc('ft_cfg_show_type_label', 'Show card type label'),
+                    loc('ft_cfg_show_type_label', 'Hide all card labels'),
                     cfg.display,
-                    'show_type_label'
+                    'hide_all_labels',
+                    nil,
+                    {w = 2.35, col_w = 2.35}
                 ),
             },
         }
@@ -295,7 +315,8 @@ return function(FT)
                     loc('ft_cfg_logging_verbose', 'Enable info and debug logs'),
                     cfg.logging,
                     'verbose',
-                    on_verbose_toggle
+                    on_verbose_toggle,
+                    {w = 2.35, col_w = 2.35}
                 ),
             },
         }

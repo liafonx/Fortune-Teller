@@ -1,6 +1,6 @@
 {
   "name": "FortuneTeller",
-  "version_number": "0.1.0",
+  "version_number": "0.1.1",
   "website_url": "https://github.com/liafo/Fortune-Teller",
   "description": "Foresee deterministic random card outcomes directly in hover UI.",
   "dependencies": [
