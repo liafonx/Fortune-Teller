@@ -2,7 +2,7 @@
   "id": "fortune_teller",
   "name": "Fortune Teller",
   "display_name": "Fortune Teller",
-  "author": ["liafo"],
+  "author": ["liafox"],
   "description": "Foresee card-generation outcomes and show them directly in card hover UI.",
   "prefix": "ft",
   "main_file": "main.lua",
