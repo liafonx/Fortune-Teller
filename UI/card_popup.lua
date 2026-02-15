@@ -11,7 +11,10 @@ return function(FT)
             panel_padding = 0.07 * k,
             badge_padding = 0.03 * k,
             frame_padding = 0.18 * k,
-            card_gap = 0.05 * k,
+            two_side_gap = 0.085 * k,
+            two_middle_gap = 0.02 * k,
+            multi_gap = 0.05 * k,
+            multi_side_gap = 0.1 * k,
             forecast_inner_pad = 0.04 * k,
             forecast_cards_pad = 0.03 * k,
             text_scale = 0.55 * k,
@@ -137,26 +140,25 @@ return function(FT)
         local single_card_slot_width = math.max(L.preview_w + L.frame_padding, L.tag_floor)
         local forecast_width = single_card_slot_width
 
-        if item_count > 1 then
-            local equal_gap_width = total_items_width + (item_count - 1) * L.card_gap + (2 * L.card_gap)
-
-            if equal_gap_width < single_card_slot_width then
-                forecast_width = single_card_slot_width
-                local even_gap = math.max(0, (forecast_width - total_items_width) / (item_count + 1))
-                add_gap(forecast_nodes, even_gap)
-                for i = 1, item_count do
-                    forecast_nodes[#forecast_nodes + 1] = elements[i].node
-                    add_gap(forecast_nodes, even_gap)
-                end
-            else
-                forecast_width = equal_gap_width
-                add_gap(forecast_nodes, L.card_gap)
-                for i = 1, item_count do
-                    forecast_nodes[#forecast_nodes + 1] = elements[i].node
-                    add_gap(forecast_nodes, L.card_gap)
+        if item_count == 2 then
+            forecast_width = total_items_width + (2 * L.two_side_gap) + L.two_middle_gap
+            add_gap(forecast_nodes, L.two_side_gap)
+            forecast_nodes[#forecast_nodes + 1] = elements[1].node
+            add_gap(forecast_nodes, L.two_middle_gap)
+            forecast_nodes[#forecast_nodes + 1] = elements[2].node
+            add_gap(forecast_nodes, L.two_side_gap)
+            forecast_inner_padding = 0
+            forecast_cards_padding = 0
+        elseif item_count > 2 then
+            forecast_width = total_items_width + (2 * L.multi_side_gap) + ((item_count - 1) * L.multi_gap)
+            add_gap(forecast_nodes, L.multi_side_gap)
+            for i = 1, item_count do
+                forecast_nodes[#forecast_nodes + 1] = elements[i].node
+                if i < item_count then
+                    add_gap(forecast_nodes, L.multi_gap)
                 end
             end
-
+            add_gap(forecast_nodes, L.multi_side_gap)
             forecast_inner_padding = 0
             forecast_cards_padding = 0
         else
