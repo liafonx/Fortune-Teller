@@ -1,4 +1,5 @@
 return function(FT)
+    local U = FT.utils
     local log = (FT.Logger and FT.Logger.create and FT.Logger.create('CardPopup')) or function() end
     local render = FT.load_module('UI/card_popup_render.lua')(FT)
 
@@ -33,31 +34,8 @@ return function(FT)
         }
     end
 
-    local function normalize_title_text(text)
-        if type(text) ~= 'string' then
-            return nil
-        end
-
-        local normalized = text:gsub('%s+', ' '):gsub('^%s+', ''):gsub('%s+$', '')
-        if normalized == '' then
-            return nil
-        end
-
-        return normalized
-    end
-
     local function normalized_or(text, fallback)
-        return normalize_title_text(text) or fallback
-    end
-
-    local function clamp(value, min_value, max_value)
-        if value < min_value then
-            return min_value
-        end
-        if value > max_value then
-            return max_value
-        end
-        return value
+        return U.normalize_text(text) or fallback
     end
 
     local function visible_title_text_length(text)
@@ -65,18 +43,18 @@ return function(FT)
         -- Strip Balatro formatting markers so width reflects rendered glyphs.
         s = s:gsub('{[^}]-}', '')
         s = s:gsub('#%d+#', '')
-        s = normalize_title_text(s) or ''
+        s = U.normalize_text(s) or ''
         return #s
     end
 
     local function compute_mini_popup_minw(title_text)
         local len = visible_title_text_length(title_text)
         local grow = math.max(0, len - 12) * 0.065
-        return clamp(DEFAULT_MINI_POPUP_MINW + grow, DEFAULT_MINI_POPUP_MINW, MAX_MINI_POPUP_MINW)
+        return U.clamp(DEFAULT_MINI_POPUP_MINW + grow, DEFAULT_MINI_POPUP_MINW, MAX_MINI_POPUP_MINW)
     end
 
     local function localize_effect_name(card, ui_table)
-        local explicit_name = ui_table and normalize_title_text(ui_table.ft_effect_name)
+        local explicit_name = ui_table and U.normalize_text(ui_table.ft_effect_name)
         if explicit_name then
             return explicit_name
         end
@@ -103,23 +81,13 @@ return function(FT)
                         .. ' card=' .. tostring(card and card.ability and card.ability.name)
                 )
             end
-            local normalized = ok and normalize_title_text(value) or nil
+            local normalized = ok and U.normalize_text(value) or nil
             if normalized then
                 return normalized
             end
         end
 
-        return normalize_title_text(card and card.ability and card.ability.name) or ''
-    end
-
-    local function resolve_text_item(item)
-        if item.text then
-            return tostring(item.text)
-        end
-        if item.text_key then
-            return localize(item.text_key)
-        end
-        return ''
+        return U.normalize_text(card and card.ability and card.ability.name) or ''
     end
 
     local function add_gap(nodes, width, layout)
@@ -143,7 +111,7 @@ return function(FT)
 
         for i = 1, #items do
             local item = items[i]
-            local element = render.make_forecast_element(item, layout, resolve_text_item, normalize_title_text)
+            local element = render.make_forecast_element(item, layout)
             if element then
                 elements[#elements + 1] = element
             else

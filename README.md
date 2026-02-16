@@ -1,25 +1,27 @@
 # Fortune Teller
 
-Shows card random outcomes directly in hover info popups.
+Preview what cards will do before you use them — hover to see the outcome.
 
-## Features
+## What It Does
 
-- Moves card description text into a separate popup.
-- Replaces the main info panel with random-result card previews.
-- Keeps Collection view on vanilla popup behavior.
-- Preserves RNG state during hover prediction (no random consumption).
+- Hover over supported cards to see what they'll generate or target.
+- Card effect description moves to a small side popup.
+- Collection view stays unchanged.
+- Hovering never affects gameplay — your random outcomes stay the same.
 
-## Current Supported Predictions
+## Supported Cards
 
-- Wheel of Fortune
-- The Emperor, The High Priestess (always show full generated results, ignoring current consumable slots)
+- Wheel of Fortune (shows the target joker, or "Nope!" if it would fail)
+- The Emperor, The High Priestess (shows all cards that would be created)
 - Judgement, The Soul, Wraith
 - Invisible Joker
 - Aura, Sigil, Ouija, Hex, Ectoplasm, Ankh
 - Familiar, Grim, Incantation, Immolate
+- Purple Seal (highlight cards in hand to preview the next Tarot outcomes)
 
-## Config Settings
+## Config
 
-- Cards tab: enable/disable Fortune Teller popup replacement per supported card.
-- Display tab: toggle main popup name, card info popup, and card type label.
-- Logging tab: toggle info/debug logging.
+In the mod settings tabs:
+- **Cards** — turn predictions on/off per card, toggle Purple Seal preview and Invisible Joker early display.
+- **Display** — show/hide card name, effect popup, and badge labels.
+- **Logging** — enable detailed logs for troubleshooting.

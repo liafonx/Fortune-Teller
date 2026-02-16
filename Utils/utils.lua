@@ -138,5 +138,134 @@ return function(FT)
         return (#G.jokers.cards < G.jokers.config.card_limit) or (card and card.area == G.jokers)
     end
 
+    function U.clamp(value, min_value, max_value)
+        if value < min_value then
+            return min_value
+        end
+        if value > max_value then
+            return max_value
+        end
+        return value
+    end
+
+    function U.normalize_text(text)
+        if type(text) ~= 'string' then
+            return nil
+        end
+        local normalized = text:gsub('%s+', ' '):gsub('^%s+', ''):gsub('%s+$', '')
+        if normalized == '' then
+            return nil
+        end
+        return normalized
+    end
+
+    local PACK_STATE_KEYS = {'TAROT_PACK', 'PLANET_PACK', 'SPECTRAL_PACK', 'STANDARD_PACK', 'BUFFOON_PACK'}
+
+    function U.is_pack_context_active()
+        if not G then
+            return false
+        end
+
+        if G.STATES and G.STATE then
+            for i = 1, #PACK_STATE_KEYS do
+                local state = G.STATES[PACK_STATE_KEYS[i]]
+                if state and G.STATE == state then
+                    return true
+                end
+            end
+        end
+
+        if G.booster_pack and not G.booster_pack.REMOVED then
+            return true
+        end
+        if G.pack_cards and not G.pack_cards.REMOVED and G.pack_cards.cards and G.pack_cards.cards[1] then
+            return true
+        end
+
+        return false
+    end
+
+    local function append_normalized(out, text)
+        local normalized = U.normalize_text(text)
+        if normalized then
+            out[#out + 1] = normalized
+        end
+    end
+
+    local function collect_dynastring_fragments(str, out, depth)
+        if depth > 8 or str == nil then
+            return
+        end
+        local t = type(str)
+        if t == 'string' then
+            append_normalized(out, str)
+            return
+        end
+        if t ~= 'table' then
+            return
+        end
+
+        local embedded = rawget(str, 'string')
+        if type(embedded) == 'string' then
+            append_normalized(out, embedded)
+        end
+
+        for i = 1, #str do
+            collect_dynastring_fragments(str[i], out, depth + 1)
+        end
+    end
+
+    local function collect_node_text(node, out, depth)
+        if depth > 12 or node == nil then
+            return
+        end
+
+        local node_type = type(node)
+        if node_type == 'string' then
+            append_normalized(out, node)
+            return
+        end
+        if node_type ~= 'table' then
+            return
+        end
+
+        local cfg = rawget(node, 'config')
+        if type(cfg) == 'table' then
+            append_normalized(out, cfg.text)
+
+            local obj = rawget(cfg, 'object')
+            if type(obj) == 'table' then
+                collect_dynastring_fragments(rawget(obj, 'string'), out, 0)
+            end
+        end
+
+        local children = rawget(node, 'nodes')
+        if type(children) == 'table' then
+            for i = 1, #children do
+                collect_node_text(children[i], out, depth + 1)
+            end
+        end
+
+        for i = 1, #node do
+            collect_node_text(node[i], out, depth + 1)
+        end
+    end
+
+    function U.extract_popup_title(name_nodes)
+        if type(name_nodes) ~= 'table' then
+            return nil
+        end
+
+        local fragments = {}
+        for i = 1, #name_nodes do
+            collect_node_text(name_nodes[i], fragments, 0)
+        end
+
+        if #fragments < 1 then
+            return nil
+        end
+        return U.normalize_text(table.concat(fragments, ' '))
+    end
+
     log("info", "Utility module initialized")
 end

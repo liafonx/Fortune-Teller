@@ -1,6 +1,7 @@
 return function(FT)
     local P = FT.predictors
     local Preview = FT.preview
+    local U = FT.utils
     local log = (FT.Logger and FT.Logger.create and FT.Logger.create('Hooks')) or function() end
 
     local popup = FT.load_module('UI/card_popup.lua')(FT)
@@ -19,148 +20,11 @@ return function(FT)
         return tostring(card and card.ability and card.ability.name)
     end
 
-    local function normalize_popup_title_text(text)
-        if type(text) ~= 'string' then
-            return nil
-        end
-        local normalized = text:gsub('%s+', ' '):gsub('^%s+', ''):gsub('%s+$', '')
-        if normalized == '' then
-            return nil
-        end
-        return normalized
-    end
-
-    local function append_normalized_title(out, text)
-        local normalized = normalize_popup_title_text(text)
-        if normalized then
-            out[#out + 1] = normalized
-        end
-    end
-
-    local function collect_title_fragments_from_dynastring(str, out, depth)
-        if depth > 8 or str == nil then
-            return
-        end
-        local t = type(str)
-        if t == 'string' then
-            append_normalized_title(out, str)
-            return
-        end
-        if t ~= 'table' then
-            return
-        end
-
-        local embedded = rawget(str, 'string')
-        if type(embedded) == 'string' then
-            append_normalized_title(out, embedded)
-        end
-
-        for i = 1, #str do
-            collect_title_fragments_from_dynastring(str[i], out, depth + 1)
-        end
-    end
-
-    local function collect_title_text_from_node(node, out, depth)
-        if depth > 12 or node == nil then
-            return
-        end
-
-        local node_type = type(node)
-        if node_type == 'string' then
-            append_normalized_title(out, node)
-            return
-        end
-        if node_type ~= 'table' then
-            return
-        end
-
-        local cfg = rawget(node, 'config')
-        if type(cfg) == 'table' then
-            append_normalized_title(out, cfg.text)
-
-            local obj = rawget(cfg, 'object')
-            if type(obj) == 'table' then
-                collect_title_fragments_from_dynastring(rawget(obj, 'string'), out, 0)
-            end
-        end
-
-        local children = rawget(node, 'nodes')
-        if type(children) == 'table' then
-            for i = 1, #children do
-                collect_title_text_from_node(children[i], out, depth + 1)
-            end
-        end
-
-        for i = 1, #node do
-            collect_title_text_from_node(node[i], out, depth + 1)
-        end
-    end
-
-    local function extract_popup_title_from_name_nodes(name_nodes)
-        if type(name_nodes) ~= 'table' then
-            return nil
-        end
-
-        local fragments = {}
-        for i = 1, #name_nodes do
-            collect_title_text_from_node(name_nodes[i], fragments, 0)
-        end
-
-        if #fragments < 1 then
-            return nil
-        end
-        return normalize_popup_title_text(table.concat(fragments, ' '))
-    end
-
-    local PACK_STATE_KEYS = {'TAROT_PACK', 'PLANET_PACK', 'SPECTRAL_PACK', 'STANDARD_PACK', 'BUFFOON_PACK'}
-
-    local function is_active_pack_state()
-        if not (G and G.STATES and G.STATE) then
-            return false
-        end
-
-        for i = 1, #PACK_STATE_KEYS do
-            local state = G.STATES[PACK_STATE_KEYS[i]]
-            if state and G.STATE == state then
-                return true
-            end
-        end
-        return false
-    end
-
-    local function has_visible_pack_cards()
-        return G
-            and G.pack_cards
-            and not G.pack_cards.REMOVED
-            and G.pack_cards.cards
-            and G.pack_cards.cards[1]
-    end
-
-    local function is_pack_context_active()
-        if not G then
-            return false
-        end
-
-        if is_active_pack_state() then
-            return true
-        end
-
-        -- Booster UI can remain active while state transitions (hand shown above pack cards).
-        if G.booster_pack and not G.booster_pack.REMOVED then
-            return true
-        end
-        if has_visible_pack_cards() then
-            return true
-        end
-
-        return false
-    end
-
     local function should_refresh_popup_after_highlight(card)
         if not (card and card.states and card.states.hover and card.states.hover.is) then
             return false
         end
-        if is_pack_context_active() then
+        if U.is_pack_context_active() then
             return false
         end
         if card.area ~= G.hand then
@@ -282,7 +146,7 @@ return function(FT)
 
         ui_table.ft_effect_set = self.config.center and self.config.center.set or nil
         ui_table.ft_effect_key = self.config.center and self.config.center.key or nil
-        ui_table.ft_effect_name = extract_popup_title_from_name_nodes(ui_table.name)
+        ui_table.ft_effect_name = U.extract_popup_title(ui_table.name)
         ui_table.ft_forecast_items = forecast_items
 
         self._ft_preview_cards = previews

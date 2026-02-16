@@ -1,25 +1,19 @@
 # Changelog
 
-## Unreleased
+## 0.1.1
 
-- Refactored core runtime for maintainability:
-  - Added root `UI/` modules: `UI/card_popup.lua`, `UI/config_tabs.lua`, `UI/preview_cards.lua`.
-  - Merged config bootstrap/defaults into `Core/config_setup.lua`.
-  - Merged predictor route files into `Core/predictors/routes.lua`.
-  - Moved runtime hooks to `Core/ui_hooks.lua` and removed legacy wrappers/shims.
-- Updated forecast panel behavior:
-  - Fixed-height baseline from normal joker preview size.
-  - Multi-card layout supports equal-gap mode and default-width even-spacing fallback.
-  - Forecast area uses shop-style dark joker slot background.
-- Updated gameplay/UI behavior:
-  - Collection cards now always use vanilla popup.
-  - Removed collection-hover skip debug logging from hot path.
-  - Emperor/High Priestess show full generated results regardless of current consumable slots.
-- Updated repository docs (`README*`, `AGENT.md`, `docs/*`) to reflect current architecture and behavior.
+- Added Purple Seal hand preview — highlight Purple Seal cards to see the next Tarot outcomes.
+- Added "Nope!" stamp for Wheel of Fortune when the roll would fail.
+- Added option to show Invisible Joker copy before it's ready to trigger.
+- Added option to hide all badge labels on popups.
+- Improved multi-card preview layout and spacing.
+- Improved forecast panel background styling.
+- Emperor and High Priestess now always show all generated cards.
+- Collection view no longer uses forecast popups.
+- Fixed CJK text display in forecast stamps.
 
 ## 0.1.0
 
-- Initial mod setup.
-- Added forecast UI architecture split into modules.
-- Added deterministic prediction support for current scoped cards.
-- Added Balatro mod init scripts/config/docs baseline.
+- Initial release.
+- Hover predictions for Wheel of Fortune, Emperor, High Priestess, Judgement, The Soul, Wraith, Invisible Joker, Aura, Sigil, Ouija, Hex, Ectoplasm, Ankh, Familiar, Grim, Incantation, Immolate.
+- Per-card config toggles, display settings, and logging options.

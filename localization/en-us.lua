@@ -18,14 +18,6 @@ return {
             ft_cfg_logging_verbose = 'Enable info and debug logs',
         },
     },
-    descriptions = {
-        Other = {
-            ft_placeholder = {
-                name = "Fortune Teller",
-                text = {
-                    "Localization scaffold initialized"
-                }
-            }
-        }
-    }
+    descriptions = {}
+
 }

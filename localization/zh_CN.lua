@@ -18,14 +18,6 @@ return {
             ft_cfg_logging_verbose = '启用 info 与 debug 日志',
         },
     },
-    descriptions = {
-        Other = {
-            ft_placeholder = {
-                name = "Fortune Teller",
-                text = {
-                    "本地化框架已初始化"
-                }
-            }
-        }
-    }
+    descriptions = {}
+
 }

@@ -1,4 +1,5 @@
 return function(FT)
+    local U = FT.utils
     local log = (FT.Logger and FT.Logger.create and FT.Logger.create('CardPopupRender')) or function() end
 
     local DEFAULT_FORECAST_BG_MIX = 0.8
@@ -6,14 +7,14 @@ return function(FT)
 
     local NopeStampIcon = nil
 
-    local function clamp(value, min_value, max_value)
-        if value < min_value then
-            return min_value
+    local function resolve_text_item(item)
+        if item.text then
+            return tostring(item.text)
         end
-        if value > max_value then
-            return max_value
+        if item.text_key then
+            return localize(item.text_key)
         end
-        return value
+        return ''
     end
 
     local function create_nope_stamp_icon(text, w, h, stamp_colour, text_colour, text_scale)
@@ -70,7 +71,7 @@ return function(FT)
                 local side = math.max(10, math.min(w_px, h_px) * 0.8)
                 local fit_h = (side * 0.66) / math.max(1, raw_h * base_sy)
                 local fit_w = (w_px * 0.9) / math.max(1, raw_w * base_sx)
-                local fit = clamp(math.min(fit_h, fit_w), 0.72, 1.0)
+                local fit = U.clamp(math.min(fit_h, fit_w), 0.72, 1.0)
                 local sx = base_sx * fit
                 local sy = base_sy * fit
                 local tw = raw_w * sx
@@ -109,7 +110,7 @@ return function(FT)
         return NopeStampIcon(w or 1, h or 0.5, text, stamp_colour, text_colour, text_scale)
     end
 
-    local function build_nope_static_node(item, text_width, layout, resolve_text_item)
+    local function build_nope_static_node(item, text_width, layout)
         local text = resolve_text_item(item)
         local text_colour = (G and G.C and G.C.WHITE) or {1, 1, 1, 1}
         local base = (G and G.C and G.C.SECONDARY_SET and G.C.SECONDARY_SET.Tarot) or G.C.PURPLE or G.C.RED
@@ -153,7 +154,7 @@ return function(FT)
         }
     end
 
-    local function build_plain_text_node(item, text_width, layout, resolve_text_item)
+    local function build_plain_text_node(item, text_width, layout)
         local text_colour = (G and G.C and G.C['UI'] and G.C['UI'].TEXT_LIGHT) or G.C.WHITE
 
         return {
@@ -179,7 +180,7 @@ return function(FT)
         }
     end
 
-    local function is_nope_text_item(item, normalize_title_text)
+    local function is_nope_text_item(item)
         if not item then
             return false
         end
@@ -188,8 +189,8 @@ return function(FT)
             return true
         end
 
-        local text = normalize_title_text(item.text)
-        local nope = normalize_title_text(localize('k_nope_ex'))
+        local text = U.normalize_text(item.text)
+        local nope = U.normalize_text(localize('k_nope_ex'))
         return text and nope and text == nope
     end
 
@@ -248,7 +249,7 @@ return function(FT)
 
     local R = {}
 
-    function R.make_forecast_element(item, layout, resolve_text_item, normalize_title_text)
+    function R.make_forecast_element(item, layout)
         if item.kind == 'card' and item.card then
             return {
                 width = layout.preview_w,
@@ -264,14 +265,14 @@ return function(FT)
         end
 
         local text_width = layout.preview_w + layout.frame_padding
-        local is_nope = is_nope_text_item(item, normalize_title_text)
+        local is_nope = is_nope_text_item(item)
         if is_nope then
             text_width = math.max(text_width, 1.08)
         end
 
         local node = is_nope
-            and build_nope_static_node(item, text_width, layout, resolve_text_item)
-            or build_plain_text_node(item, text_width, layout, resolve_text_item)
+            and build_nope_static_node(item, text_width, layout)
+            or build_plain_text_node(item, text_width, layout)
 
         return {
             width = text_width,

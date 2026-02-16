@@ -1,13 +1,15 @@
 # Fortune Teller
 
-A Balatro UX mod that shows random card outcomes directly in hover info popups.
+A Balatro mod that lets you preview what random-result cards will do before you use them.
 
-- Card description text is shown in a dedicated popup.
-- Main info panel shows random-result card previews.
-- Supports one-card and multi-card result previews with stable card sizing.
-- Collection view stays vanilla (forecast UI is disabled there).
-- Hover prediction is RNG-safe (does not consume random state).
+[简体中文](https://github.com/liafonx/Balatro-FortuneTeller/blob/main/README_zh.md) | [Changelog](https://github.com/liafonx/Balatro-FortuneTeller/blob/main/CHANGELOG.md) | [更新日志](https://github.com/liafonx/Balatro-FortuneTeller/blob/main/CHANGELOG_zh.md)
 
-Config settings are available in mod tabs for per-card enable/disable, popup display toggles, and debug/info logging.
+- Hover supported cards to see what they'll generate or target.
+- Card effect description moves to a small side popup.
+- Works with single and multi-card outcomes.
+- Collection view stays unchanged.
+- Hovering never affects gameplay — your random outcomes stay the same.
 
-For wording style and full user-facing details, reference `README.md`.
+Per-card toggles, display options, and logging are available in mod settings tabs.
+
+For full details, see [README.md](https://github.com/liafonx/Balatro-FortuneTeller/blob/main/README.md).

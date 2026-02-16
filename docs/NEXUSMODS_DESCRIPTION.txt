@@ -1,27 +1,27 @@
 [center][size=5][b]Fortune Teller[/b][/size]
 
-[i]Preview deterministic random outcomes directly in hover UI.[/i][/center]
+[i]Hover over cards to see what they'll do before you use them.[/i][/center]
 
-Fortune Teller surfaces random-result card outcomes before use/sell by showing a visual forecast in the card info panel.
+Fortune Teller shows you the outcome of random-result cards right in the hover popup — no guessing needed.
 
 [list]
-[*]Effect text moved to a dedicated popup
-[*]Main panel replaced with forecast card previews
-[*]Stable card sizing with dynamic width for multi-card outcomes
-[*]Collection view keeps vanilla info panel behavior
-[*]RNG-safe hover prediction (no random state consumption)
-[*]Built-in config tabs for per-card toggles, display options, and debug/info logs
+[*]See what a card will generate or target before using it
+[*]Card effect description moves to a small side popup
+[*]Collection view stays unchanged
+[*]Hovering never affects gameplay — your random outcomes stay the same
+[*]Per-card toggles and display options in mod settings
 [/list]
 
-[size=4][b]Current Supported Predictions[/b][/size]
+[size=4][b]Supported Cards[/b][/size]
 
 [list]
-[*]Wheel of Fortune
-[*]The Emperor, The High Priestess (always show full generated results, ignoring current consumable slots)
+[*]Wheel of Fortune (shows target joker, or "Nope!" if it would fail)
+[*]The Emperor, The High Priestess (shows all cards that would be created)
 [*]Judgement, The Soul, Wraith
 [*]Invisible Joker
 [*]Aura, Sigil, Ouija, Hex, Ectoplasm, Ankh
 [*]Familiar, Grim, Incantation, Immolate
+[*]Purple Seal (highlight cards in hand to preview the next Tarot outcomes)
 [/list]
 
 [size=4][b]Installation[/b][/size]

@@ -133,6 +133,11 @@ return function(FT)
     FT.config_api = FT.config_api or {}
     local api = FT.config_api
 
+    local function config_flag(section, key)
+        local s = FT.config and FT.config[section]
+        return not not (s and s[key])
+    end
+
     function api.is_card_enabled(center_key)
         if not center_key then
             return false
@@ -145,33 +150,13 @@ return function(FT)
         return true
     end
 
-    function api.show_invisible_pretrigger()
-        return not not (FT.config and FT.config.cards and FT.config.cards.show_invisible_pretrigger)
-    end
-
-    function api.show_purple_seal_preview()
-        return not not (FT.config and FT.config.cards and FT.config.cards.show_purple_seal_preview)
-    end
-
-    function api.show_main_popup_name()
-        return not not (FT.config and FT.config.display and FT.config.display.show_main_popup_name)
-    end
-
-    function api.show_effect_popup()
-        return not not (FT.config and FT.config.display and FT.config.display.show_effect_popup)
-    end
-
-    function api.show_type_label()
-        return not api.hide_all_labels()
-    end
-
-    function api.hide_all_labels()
-        return not not (FT.config and FT.config.display and FT.config.display.hide_all_labels)
-    end
-
-    function api.verbose_logging()
-        return not not (FT.config and FT.config.logging and FT.config.logging.verbose)
-    end
+    function api.show_invisible_pretrigger() return config_flag('cards', 'show_invisible_pretrigger') end
+    function api.show_purple_seal_preview() return config_flag('cards', 'show_purple_seal_preview') end
+    function api.show_main_popup_name() return config_flag('display', 'show_main_popup_name') end
+    function api.show_effect_popup() return config_flag('display', 'show_effect_popup') end
+    function api.show_type_label() return not api.hide_all_labels() end
+    function api.hide_all_labels() return config_flag('display', 'hide_all_labels') end
+    function api.verbose_logging() return config_flag('logging', 'verbose') end
 
     function api.apply_logging()
         local verbose = api.verbose_logging()
