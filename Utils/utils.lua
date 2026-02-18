@@ -50,6 +50,7 @@ return function(FT)
         end
 
         local prng_snapshot = copy_table(G.GAME.pseudorandom)
+        local used_jokers_snapshot = copy_table(G.GAME.used_jokers)
         local overlay_snapshot = G.OVERLAY_MENU
 
         if not G.OVERLAY_MENU then
@@ -59,6 +60,7 @@ return function(FT)
         local ok, result = pcall(fn)
 
         G.GAME.pseudorandom = prng_snapshot
+        G.GAME.used_jokers = used_jokers_snapshot
         G.OVERLAY_MENU = overlay_snapshot
 
         if ok then

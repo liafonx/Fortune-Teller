@@ -70,6 +70,7 @@ return function(FT)
                     return nil
                 end
                 out[#out + 1] = {center = center}
+                G.GAME.used_jokers[center.key] = true
             end
             return out
         end)
@@ -91,6 +92,7 @@ return function(FT)
                     return nil
                 end
                 out[#out + 1] = {center = center}
+                G.GAME.used_jokers[center.key] = true
             end
 
             return out
