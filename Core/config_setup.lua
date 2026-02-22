@@ -21,15 +21,23 @@ return function(FT)
                 c_immolate = true,
 
                 j_invisible = true,
+
+                j_8_ball = true, j_misprint = true, j_madness = true, j_riff_raff = true,
+                j_hallucination = true, j_vagabond = true, j_superposition = true,
+                j_cartomancer = true, j_sixth_sense = true, j_seance = true,
+                j_certificate = true, j_perkeo = true,
             },
             show_invisible_pretrigger = false,
             show_purple_seal_preview = true,
+            show_misprint_draw_preview = false,
         },
         display = {
             show_main_popup_name = false,
             show_effect_popup = true,
-            show_type_label = true,
             hide_all_labels = false,
+        },
+        prediction = {
+            timing_always = false,
         },
         logging = {
             verbose = false,
@@ -89,22 +97,17 @@ return function(FT)
         cfg.cards = cfg.cards or {}
         cfg.cards.enabled_by_key = cfg.cards.enabled_by_key or {}
         cfg.display = cfg.display or {}
+        cfg.prediction = cfg.prediction or {}
         cfg.logging = cfg.logging or {}
 
         local had_verbose_flag = cfg.logging.verbose ~= nil
-        local had_hide_all_labels = cfg.display.hide_all_labels ~= nil
         deep_fill(cfg, defaults)
 
         if not had_verbose_flag and cfg.debug_mode ~= nil then
             cfg.logging.verbose = not not cfg.debug_mode
         end
 
-        if not had_hide_all_labels then
-            cfg.display.hide_all_labels = false
-        end
-
         cfg.display.hide_all_labels = not not cfg.display.hide_all_labels
-        cfg.display.show_type_label = not cfg.display.hide_all_labels
 
         cfg.logging.verbose = not not cfg.logging.verbose
         cfg.debug_mode = cfg.logging.verbose
@@ -152,9 +155,10 @@ return function(FT)
 
     function api.show_invisible_pretrigger() return config_flag('cards', 'show_invisible_pretrigger') end
     function api.show_purple_seal_preview() return config_flag('cards', 'show_purple_seal_preview') end
+    function api.show_misprint_draw_preview() return config_flag('cards', 'show_misprint_draw_preview') end
+    function api.prediction_timing_always() return config_flag('prediction', 'timing_always') end
     function api.show_main_popup_name() return config_flag('display', 'show_main_popup_name') end
     function api.show_effect_popup() return config_flag('display', 'show_effect_popup') end
-    function api.show_type_label() return not api.hide_all_labels() end
     function api.hide_all_labels() return config_flag('display', 'hide_all_labels') end
     function api.verbose_logging() return config_flag('logging', 'verbose') end
 

@@ -1,5 +1,6 @@
 return function(FT)
     FT.utils = FT.utils or {}
+    FT.runtime = FT.runtime or {}
     local U = FT.utils
     local log = (FT.Logger and FT.Logger.create and FT.Logger.create('Utils')) or function() end
     local EDITION_KEYS = {'foil', 'holo', 'polychrome', 'negative'}
@@ -267,6 +268,320 @@ return function(FT)
             return nil
         end
         return U.normalize_text(table.concat(fragments, ' '))
+    end
+
+    -- Check if j_showman is active in the joker area
+    function U.has_showman()
+        if not (G and G.jokers and G.jokers.cards) then return false end
+        for _, j in ipairs(G.jokers.cards) do
+            if j and j.config and j.config.center
+                    and j.config.center.key == 'j_showman' and not j.debuff then
+                return true
+            end
+        end
+        return false
+    end
+
+    -- Note: "consumeable" (extra 'e') matches Balatro's own spelling of G.consumeables.
+    -- This spelling is used consistently for all internal slot-cap helpers below.
+    local function normalize_consumable_slot_cap(value)
+        return (tonumber(value) or 0) >= 3 and 3 or 2
+    end
+
+    function U.set_consumable_slot_cap(cap)
+        FT.runtime.consumeable_slot_cap = normalize_consumable_slot_cap(cap)
+        return FT.runtime.consumeable_slot_cap
+    end
+
+    function U.refresh_consumable_slot_cap_from_run()
+        if not (G and G.GAME) then
+            return U.set_consumable_slot_cap(2)
+        end
+
+        local used = G.GAME.used_vouchers or {}
+        return U.set_consumable_slot_cap(used.v_crystal_ball and 3 or 2)
+    end
+
+    function U.mark_crystal_ball_used()
+        return U.set_consumable_slot_cap(3)
+    end
+
+    -- Cached base consumable slot cap for prediction display.
+    -- Slot count is treated as 2 -> 3 (Crystal Ball) and never drops in-run.
+    function U.consumeable_max_slots()
+        local cached = FT.runtime.consumeable_slot_cap
+        if type(cached) == 'number' then
+            return cached
+        end
+        return U.refresh_consumable_slot_cap_from_run()
+    end
+
+    function U.set_joker_slot_cap(cap)
+        FT.runtime.joker_slot_cap = math.max(0, tonumber(cap) or 0)
+        return FT.runtime.joker_slot_cap
+    end
+
+    function U.refresh_joker_slot_cap_from_run()
+        if not (G and G.GAME) then
+            return U.set_joker_slot_cap(5)
+        end
+
+        local base = tonumber(G.GAME.starting_params and G.GAME.starting_params.joker_slots) or 5
+        local used = G.GAME.used_vouchers or {}
+        if used.v_antimatter then
+            base = base + 1
+        end
+        return U.set_joker_slot_cap(base)
+    end
+
+    function U.mark_antimatter_used()
+        local current = FT.runtime.joker_slot_cap
+        if type(current) ~= 'number' then
+            current = U.refresh_joker_slot_cap_from_run()
+        end
+        local base = tonumber(G and G.GAME and G.GAME.starting_params and G.GAME.starting_params.joker_slots) or 5
+        local target = base + 1
+        return U.set_joker_slot_cap(math.max(current, target))
+    end
+
+    -- Base joker slot cap (ignores negative-edition +slot inflation).
+    -- Vanilla source model:
+    -- - base starts from G.GAME.starting_params.joker_slots
+    -- - Antimatter adds +1 to G.jokers.config.card_limit
+    -- - set_joker_slots_ante challenge modifier can set Joker slots to 0
+    -- - Negative jokers only inflate card_limit transiently
+    function U.joker_max_slots()
+        if not (G and G.GAME and G.jokers and G.jokers.config) then return 0 end
+
+        local cached = FT.runtime.joker_slot_cap
+        if type(cached) ~= 'number' then
+            cached = U.refresh_joker_slot_cap_from_run()
+        end
+
+        local set_ante = G.GAME.modifiers and G.GAME.modifiers.set_joker_slots_ante
+        local ante = G.GAME.round_resets and G.GAME.round_resets.ante
+        if (tonumber(G.jokers.config.card_limit) or 0) <= 0 then
+            return 0
+        end
+        if set_ante and ante and ante > set_ante then
+            return 0
+        end
+
+        return math.max(0, cached)
+    end
+
+    function U.set_normal_probability(value)
+        FT.runtime.normal_probability = tonumber(value) or 1
+        return FT.runtime.normal_probability
+    end
+
+    function U.refresh_normal_probability_from_run()
+        local normal = G and G.GAME and G.GAME.probabilities and G.GAME.probabilities.normal
+        return U.set_normal_probability(normal)
+    end
+
+    function U.normal_probability()
+        local cached = FT.runtime.normal_probability
+        if type(cached) == 'number' then
+            return cached
+        end
+        return U.refresh_normal_probability_from_run()
+    end
+
+    -- Top card of current draw deck
+    function U.deck_top_card()
+        if not (G and G.deck and G.deck.cards and #G.deck.cards > 0) then return nil end
+        return G.deck.cards[#G.deck.cards]
+    end
+
+    -- Misprint vanilla preview token format used in Card:generate_UIBox_ability_table:
+    -- "#@<id><suit initial>", e.g. "#@14H"
+    function U.misprint_draw_preview_token()
+        local top = U.deck_top_card()
+        if not (top and top.base) then return nil end
+        local id = tonumber(top.base.id)
+        local suit = type(top.base.suit) == 'string' and top.base.suit:sub(1, 1) or nil
+        if not (id and suit and suit ~= '') then return nil end
+        return '#@' .. tostring(id) .. tostring(suit)
+    end
+
+    -- Deterministic Misprint roll for a specific joker slot.
+    -- `hovered_card` controls slot-order consumption (Blueprint/Brainstorm included).
+    -- `effective_card` provides the min/max roll range (actual copied Misprint card).
+    function U.predict_misprint_mult(hovered_card, effective_card)
+        local target = effective_card or hovered_card
+        if not (target and target.ability) then
+            return nil
+        end
+
+        return U.with_prediction_snapshot(function()
+            local hovered_idx = nil
+            if hovered_card and G and G.jokers and G.jokers.cards then
+                for i = 1, #G.jokers.cards do
+                    if G.jokers.cards[i] == hovered_card then
+                        hovered_idx = i
+                        break
+                    end
+                end
+            end
+
+            if hovered_idx then
+                for i = 1, hovered_idx - 1 do
+                    local effective = U.resolve_effective_joker and U.resolve_effective_joker(i, {}) or nil
+                    if effective and U.center_key_of(effective) == 'j_misprint' then
+                        local prior_lo = effective.ability and effective.ability.extra and effective.ability.extra.min or 0
+                        local prior_hi = effective.ability and effective.ability.extra and effective.ability.extra.max or 23
+                        pseudorandom('misprint', prior_lo, prior_hi)
+                    end
+                end
+            end
+
+            local lo = target.ability.extra and target.ability.extra.min or 0
+            local hi = target.ability.extra and target.ability.extra.max or 23
+            return pseudorandom('misprint', lo, hi)
+        end)
+    end
+
+    -- Game phase checks
+    function U.is_playing_blind()
+        if not (G and G.STATE and G.STATES) then return false end
+        return G.STATE == G.STATES.HAND_PLAYED
+            or G.STATE == G.STATES.DRAW_TO_HAND
+            or G.STATE == G.STATES.SELECTING_HAND
+    end
+
+    function U.is_in_blind_select()
+        if not (G and G.STATE and G.STATES) then return false end
+        return G.STATE == G.STATES.BLIND_SELECT
+    end
+
+    function U.is_in_shop()
+        if not (G and G.STATE and G.STATES) then return false end
+        return G.STATE == G.STATES.SHOP
+    end
+
+    -- Mirrors blind-on-deck resolution from create_UIBox_blind_select.
+    -- Returns 'Small' | 'Big' | 'Boss' (defaults to 'Boss' when uncertain).
+    function U.next_blind_on_deck()
+        local rr = G and G.GAME and G.GAME.round_resets
+        local states = rr and rr.blind_states
+        if type(states) ~= 'table' then
+            return 'Boss'
+        end
+
+        local function blocked(v)
+            return v == 'Defeated' or v == 'Skipped' or v == 'Hide'
+        end
+
+        if not blocked(states.Small) then return 'Small' end
+        if not blocked(states.Big) then return 'Big' end
+        return 'Boss'
+    end
+
+    function U.is_next_blind_boss()
+        return U.next_blind_on_deck() == 'Boss'
+    end
+
+    -- Shared chain resolver: resolves the effective joker card at position idx through
+    -- Blueprint/Brainstorm chains (arbitrary depth). Returns the effective card object,
+    -- or nil on cycle / dead-end / debuffed target.
+    -- `visited` should be a fresh {} per top-level call; passed recursively to break cycles.
+    function U.resolve_effective_joker(idx, visited)
+        if not (G and G.jokers and G.jokers.cards) then return nil end
+        local cards = G.jokers.cards
+        visited = visited or {}
+        if idx < 1 or idx > #cards then return nil end
+        if visited[idx] then return nil end  -- circuit breaker
+        local j = cards[idx]
+        if not j or j.debuff then return nil end
+        local k = j.config and j.config.center and j.config.center.key
+        if not k then return nil end
+        visited[idx] = true
+        if k == 'j_blueprint' then
+            return U.resolve_effective_joker(idx + 1, visited)
+        elseif k == 'j_brainstorm' then
+            return U.resolve_effective_joker(1, visited)
+        end
+        return j
+    end
+
+    -- Count effective copies of a joker effect through Blueprint/Brainstorm chains.
+    -- Use for jokers that ARE Blueprint/Brainstorm-compatible (most scoring jokers).
+    function U.count_joker_copies(center_key)
+        if not (G and G.jokers and G.jokers.cards) then return 0 end
+        local count = 0
+        local visited = {}
+        for i = 1, #G.jokers.cards do
+            -- Clear visited table between iterations without allocating a new one
+            for k in pairs(visited) do visited[k] = nil end
+            local effective = U.resolve_effective_joker(i, visited)
+            if effective and effective.config and effective.config.center
+                    and effective.config.center.key == center_key then
+                count = count + 1
+            end
+        end
+        return math.max(0, count)
+    end
+
+    -- Count ONLY direct copies of a joker effect (no Blueprint/Brainstorm).
+    -- Use for jokers gated by `not context.blueprint` in vanilla source:
+    -- j_madness (card.lua:2503) and j_sixth_sense (card.lua:2603).
+    function U.count_direct_joker_copies(center_key)
+        if not (G and G.jokers and G.jokers.cards) then return 0 end
+        local count = 0
+        for _, j in ipairs(G.jokers.cards) do
+            if j and not j.debuff
+                    and j.config and j.config.center
+                    and j.config.center.key == center_key then
+                count = count + 1
+            end
+        end
+        return math.max(0, count)
+    end
+
+    -- Evaluate current highlighted hand using the game's poker evaluator.
+    -- Returns: text (canonical hand name string), scoring_hand (array of card objects).
+    -- Returns nil, nil if evaluation is unavailable or no cards highlighted.
+    function U.highlighted_hand_type()
+        local highlighted = G and G.hand and G.hand.highlighted
+        if not (highlighted and #highlighted > 0) then return nil, nil end
+        if not (G.FUNCS and G.FUNCS.get_poker_hand_info) then return nil, nil end
+        local ok, text, _, _, scoring_hand = pcall(G.FUNCS.get_poker_hand_info, highlighted)
+        if not ok then return nil, nil end
+        return text, scoring_hand
+    end
+
+    -- Buyable booster packs remaining in current shop
+    function U.shop_packs_remaining()
+        if not (G and G.shop_booster and G.shop_booster.cards) then return 0 end
+        return #G.shop_booster.cards
+    end
+
+    function U.clone_descriptor(desc)
+        if not desc then return nil end
+        return {
+            center = desc.center,
+            front = desc.front,
+            edition = U.copy_edition_flags(desc.edition),
+            seal = desc.seal,
+            sticker = desc.sticker,
+            sticker_run = desc.sticker_run,
+        }
+    end
+
+    function U.center_key_of(entry)
+        return entry and entry.config and entry.config.center and entry.config.center.key or 'nil'
+    end
+
+    function U.pool_summary(entries)
+        local out = {}
+        for i = 1, #(entries or {}) do
+            local e = entries[i]
+            out[#out + 1] = tostring(i)
+                .. ':' .. tostring(e and e.sort_id or 'nil')
+                .. ':' .. tostring(U.center_key_of(e))
+        end
+        return table.concat(out, ' | ')
     end
 
     log("info", "Utility module initialized")

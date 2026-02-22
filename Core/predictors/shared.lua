@@ -51,7 +51,8 @@ return function(FT)
         if count < 1 then
             return 1
         end
-        return math.min(PURPLE_SEAL_PREVIEW_MAX, count)
+        local slot_cap = math.min(PURPLE_SEAL_PREVIEW_MAX, U.consumeable_max_slots())
+        return math.min(math.max(1, slot_cap), count)
     end
 
     function S.predict_multi_consumables(card_type, key_append, amount)
@@ -62,6 +63,7 @@ return function(FT)
         end
 
         return U.with_prediction_snapshot(function()
+            local showman = U.has_showman()
             local out = {}
             for _ = 1, count do
                 local center = U.pick_center(card_type, nil, nil, nil, key_append)
@@ -70,7 +72,7 @@ return function(FT)
                     return nil
                 end
                 out[#out + 1] = {center = center}
-                G.GAME.used_jokers[center.key] = true
+                if not showman then G.GAME.used_jokers[center.key] = true end
             end
             return out
         end)
@@ -83,6 +85,7 @@ return function(FT)
 
         return U.with_prediction_snapshot(function()
             local count = count_highlighted_purple_seals()
+            local showman = U.has_showman()
             local out = {}
 
             for _ = 1, count do
@@ -92,7 +95,7 @@ return function(FT)
                     return nil
                 end
                 out[#out + 1] = {center = center}
-                G.GAME.used_jokers[center.key] = true
+                if not showman then G.GAME.used_jokers[center.key] = true end
             end
 
             return out
@@ -170,7 +173,7 @@ return function(FT)
         end
 
         return U.with_prediction_snapshot(function()
-            local success = pseudorandom('wheel_of_fortune') < G.GAME.probabilities.normal / card.ability.extra
+            local success = pseudorandom('wheel_of_fortune') < U.normal_probability() / card.ability.extra
             if not success then
                 log('debug', 'Wheel prediction result: k_nope_ex')
                 return {
@@ -366,11 +369,11 @@ return function(FT)
         if not (card and card.ability) then
             return nil
         end
-        local joker_cards, joker_config = get_joker_state()
-        if not (joker_cards and joker_config) then
+        local joker_cards = get_joker_state()
+        if not joker_cards then
             return nil
         end
-        if joker_config.card_limit <= 1 or #joker_cards < 1 then
+        if U.joker_max_slots() <= 1 or #joker_cards < 1 then
             return nil
         end
 
@@ -420,15 +423,296 @@ return function(FT)
             if not chosen then
                 return nil
             end
+            return single_descriptor(U.descriptor_from_card(chosen))
+        end)
+    end
 
-            return single_descriptor({
-                center = chosen.config.center,
-                front = chosen.config.card,
-                edition = U.copy_edition_flags(chosen.edition),
-                seal = chosen.seal,
-                sticker = chosen.sticker,
-                sticker_run = chosen.sticker_run,
-            })
+    -- Picks N centers of card_type using key_append; handles Showman gate internally.
+    -- count should already be clamped to available slots by caller.
+    -- Caches has_showman once per call to avoid O(jokers) scan per item.
+    local function pick_n_centers(card_type, key_append, count, rarity)
+        local showman = U.has_showman()  -- cache once, not per-iteration
+        local results = {}
+        for _ = 1, count do
+            local center = U.pick_center(card_type, rarity, nil, nil, key_append)
+            if center then
+                if not showman then G.GAME.used_jokers[center.key] = true end
+                results[#results + 1] = {center = center}
+            end
+        end
+        return #results > 0 and results or nil
+    end
+
+    -- Dynamic base consumable slot count (0 if unavailable).
+    -- This intentionally ignores current fill.
+    local function slot_budget(card)
+        return math.max(0, U.consumeable_max_slots())
+    end
+
+    -- Resolves effective slot count for simple (non-tracking) consumable-generating predictors.
+    local function consumeable_slot_count(card, intended)
+        return math.min(intended, slot_budget(card))
+    end
+
+    -- Shared helper: rolls probability-based Tarot generation with Nope display.
+    -- opts: { seed (string), key_append (string), total (int), threshold (number), slot_cap (int) }
+    local function predict_probability_tarot(opts)
+        local slot_cap = opts.slot_cap
+        local slots_remaining = slot_cap
+        return U.with_prediction_snapshot(function()
+            local showman = U.has_showman()
+            local successes, nope_count = {}, 0
+            for _ = 1, opts.total do
+                if slots_remaining <= 0 then break end
+                if pseudorandom(opts.seed) < opts.threshold then
+                    local center = U.pick_center('Tarot', nil, nil, nil, opts.key_append)
+                    if center then
+                        if not showman then G.GAME.used_jokers[center.key] = true end
+                        successes[#successes + 1] = {center = center}
+                        slots_remaining = slots_remaining - 1
+                    end
+                else
+                    nope_count = nope_count + 1
+                end
+            end
+            local results = {}
+            for _, s in ipairs(successes) do results[#results + 1] = s end
+            local nope_to_show = math.min(nope_count, math.max(0, slot_cap - #successes))
+            for _ = 1, nope_to_show do results[#results + 1] = {kind = 'text', text_key = 'k_nope_ex'} end
+            return #results > 0 and results or nil
+        end)
+    end
+
+    function S.predict_8_ball(card)
+        local highlighted = G and G.hand and G.hand.highlighted or {}
+        local eights = 0
+        for _, c in ipairs(highlighted) do
+            if c and c:get_id() == 8 and not c.debuff then eights = eights + 1 end
+        end
+        if eights == 0 then return nil end
+        local copies = U.count_joker_copies('j_8_ball')
+        local slot_cap = slot_budget(card)
+        if slot_cap == 0 then return nil end
+        return predict_probability_tarot({
+            seed       = '8ball',
+            key_append = '8ba',
+            total      = eights * copies,
+            threshold  = U.normal_probability() / (card.ability.extra or 4),
+            slot_cap   = slot_cap,
+        })
+    end
+
+    function S.predict_misprint(card, hovered_card)
+        -- 'card' is the effective j_misprint card (engine resolves Blueprint/Brainstorm).
+        -- 'hovered_card' keeps original joker slot identity so copies can show slot-accurate rolls.
+        local mult = U.predict_misprint_mult and U.predict_misprint_mult(hovered_card or card, card) or nil
+        if mult == nil then return nil end
+        return {{
+            kind = 'misprint_mult',
+            mult = mult,
+        }}
+    end
+
+    function S.predict_madness(card)
+        -- Boss blind gate: j_madness doesn't fire on boss blinds (card.lua:2503).
+        -- Also suppress preview when the upcoming blind on deck is Boss.
+        -- Trigger conditions — not bypassed by timing_always.
+        if G and G.GAME and G.GAME.blind and G.GAME.blind.boss then return nil end
+        if U.is_next_blind_boss and U.is_next_blind_boss() then return nil end
+        local joker_cards, joker_config = get_joker_state()
+        if not joker_cards then return nil end
+        -- Collect direct Madness copies in joker-area order (card.lua:2503: not context.blueprint)
+        local madness_cards = {}
+        for _, j in ipairs(joker_cards) do
+            if j and not j.debuff
+                    and j.config and j.config.center
+                    and j.config.center.key == 'j_madness' then
+                madness_cards[#madness_cards + 1] = j
+            end
+        end
+        if #madness_cards == 0 then return nil end
+        return U.with_prediction_snapshot(function()
+            -- Base eligible pool: non-eternal, not already getting_sliced
+            local base_eligible = {}
+            for _, j in ipairs(joker_cards) do
+                if not (j.ability and j.ability.eternal) and not j.getting_sliced then
+                    base_eligible[#base_eligible + 1] = j
+                end
+            end
+            local results = {}
+            local claimed = {}  -- jokers chosen by earlier copies in this simulation
+            for _, m in ipairs(madness_cards) do
+                -- Each Madness copy excludes itself + already-claimed jokers (mirrors vanilla)
+                local pool = {}
+                for _, j in ipairs(base_eligible) do
+                    if j ~= m and not claimed[j] then pool[#pool + 1] = j end
+                end
+                if #pool == 0 then break end
+                local chosen = pseudorandom_element(pool, pseudoseed('madness'))
+                if chosen then
+                    claimed[chosen] = true
+                    local desc = U.descriptor_from_card(chosen)
+                    if desc then
+                        desc.destroyed = true
+                        results[#results + 1] = desc
+                    end
+                end
+            end
+            return #results > 0 and results or nil
+        end)
+    end
+
+    function S.predict_riff_raff(card)
+        local joker_cards = get_joker_state()
+        if not joker_cards then return nil end
+        local copies = U.count_joker_copies('j_riff_raff')
+        -- Cap by base max Joker slots after accounting for triggering copies only.
+        local max_spawns = math.max(0, U.joker_max_slots() - copies)
+        local count = math.min(copies * 2, max_spawns)
+        if count == 0 then return nil end
+        return U.with_prediction_snapshot(function()
+            return pick_n_centers('Joker', 'rif', count, 0)  -- rarity 0 = Common pool
+        end)
+    end
+
+    function S.predict_hallucination(card)
+        local copies = U.count_joker_copies('j_hallucination')
+        local packs = U.shop_packs_remaining()
+        -- Support choosing-blind saves: if no shop packs are instantiated yet, reserve one
+        -- virtual "next pack" preview while on blind-select.
+        if packs == 0 and U.is_in_blind_select() then
+            packs = 1
+        end
+        if copies == 0 or packs == 0 then return nil end
+        local slot_cap = slot_budget(card)
+        if slot_cap == 0 then return nil end
+        local ante = G.GAME.round_resets and G.GAME.round_resets.ante or 1
+        return predict_probability_tarot({
+            seed       = 'halu' .. ante,
+            key_append = 'hal',
+            total      = copies,
+            threshold  = U.normal_probability() / (card.ability.extra or 2),
+            slot_cap   = slot_cap,
+        })
+    end
+
+    function S.predict_vagabond(card)
+        local threshold_dollars = card.ability.extra or 4
+        if not (G and G.GAME and G.GAME.dollars <= threshold_dollars) then return nil end
+        local copies = U.count_joker_copies('j_vagabond')
+        local count = consumeable_slot_count(card, copies)
+        if count == 0 then return nil end
+        return U.with_prediction_snapshot(function()
+            return pick_n_centers('Tarot', 'vag', count)
+        end)
+    end
+
+    function S.predict_superposition(card)
+        local hand_text, scoring_hand = U.highlighted_hand_type()
+        if hand_text ~= 'Straight' then return nil end
+        -- Vanilla loops scoring_hand and checks get_id() == 14 for Ace (card.lua:3762-3770)
+        local has_ace = false
+        for _, c in ipairs(scoring_hand or {}) do
+            if c:get_id() == 14 then has_ace = true; break end
+        end
+        if not has_ace then return nil end
+        local copies = U.count_joker_copies('j_superposition')
+        local count = consumeable_slot_count(card, copies)
+        if count == 0 then return nil end
+        return U.with_prediction_snapshot(function()
+            return pick_n_centers('Tarot', 'sup', count)
+        end)
+    end
+
+    function S.predict_cartomancer(card)
+        local copies = U.count_joker_copies('j_cartomancer')
+        local count = consumeable_slot_count(card, copies)
+        if count == 0 then return nil end
+        return U.with_prediction_snapshot(function()
+            return pick_n_centers('Tarot', 'car', count)
+        end)
+    end
+
+    function S.predict_sixth_sense(card)
+        -- First hand constraint: G.GAME.current_round.hands_played == 0 (card.lua:2604)
+        if not (G and G.GAME and G.GAME.current_round
+                and G.GAME.current_round.hands_played == 0) then
+            return nil
+        end
+        local highlighted = G and G.hand and G.hand.highlighted or {}
+        -- Vanilla: exactly one card played, that card is a 6 (card.lua:2604: #context.full_hand == 1)
+        if #highlighted ~= 1
+                or highlighted[1]:get_id() ~= 6
+                or highlighted[1].debuff then
+            return nil
+        end
+        -- Direct count only: Blueprint/Brainstorm cannot trigger Sixth Sense (card.lua:2603)
+        local copies = U.count_direct_joker_copies('j_sixth_sense')
+        local count = consumeable_slot_count(card, copies)
+        if count == 0 then return nil end
+        return U.with_prediction_snapshot(function()
+            return pick_n_centers('Spectral', 'sixth', count)
+        end)
+    end
+
+    function S.predict_seance(card)
+        local required_hand = card.ability and card.ability.extra and card.ability.extra.poker_hand
+        if required_hand then
+            local hand_text = U.highlighted_hand_type()  -- first return value only
+            if hand_text ~= required_hand then return nil end
+        end
+        local copies = U.count_joker_copies('j_seance')
+        local count = consumeable_slot_count(card, copies)
+        if count == 0 then return nil end
+        return U.with_prediction_snapshot(function()
+            return pick_n_centers('Spectral', 'sea', count)
+        end)
+    end
+
+    function S.predict_certificate(card)
+        local copies = U.count_joker_copies('j_certificate')
+        if copies == 0 then return nil end
+        return U.with_prediction_snapshot(function()
+            local results = {}
+            for _ = 1, copies do
+                local front = pseudorandom_element(G.P_CARDS, pseudoseed('cert_fr'))
+                local seal_roll = pseudorandom(pseudoseed('certsl'))
+                local seal
+                if seal_roll > 0.75 then      seal = 'Red'    -- verified order from card.lua:2470
+                elseif seal_roll > 0.5 then   seal = 'Blue'
+                elseif seal_roll > 0.25 then  seal = 'Gold'
+                else                           seal = 'Purple'
+                end
+                results[#results + 1] = {center = G.P_CENTERS.c_base, front = front, seal = seal}
+            end
+            return #results > 0 and results or nil
+        end)
+    end
+
+    function S.predict_perkeo(card)
+        if not (G and G.consumeables and #G.consumeables.cards > 0) then return nil end
+        local copies = U.count_joker_copies('j_perkeo')
+        if copies == 0 then return nil end
+        return U.with_prediction_snapshot(function()
+            local results = {}
+            local pool = {unpack(G.consumeables.cards)}
+
+            for _ = 1, copies do
+                local chosen = pseudorandom_element(pool, pseudoseed('perkeo'))
+                if chosen then
+                    local desc = U.descriptor_from_card(chosen)
+                    if desc then
+                        desc.edition = {negative = true}
+                        results[#results + 1] = U.clone_descriptor(desc)
+                    end
+                end
+            end
+            log('debug', function()
+                return 'Perkeo predict summary: copies=' .. tostring(copies)
+                    .. ' pool_size=' .. tostring(#pool)
+                    .. ' results=' .. tostring(#results)
+            end)
+            return #results > 0 and results or nil
         end)
     end
 

@@ -3,11 +3,7 @@ return function(FT)
         return
     end
 
-    local cfg = FT.config or {}
-    cfg.cards = cfg.cards or {}
-    cfg.cards.enabled_by_key = cfg.cards.enabled_by_key or {}
-    cfg.display = cfg.display or {}
-    cfg.logging = cfg.logging or {}
+    local cfg = FT.config
 
     local fallback_card_entries = (FT.config_meta and FT.config_meta.card_entries) or {}
 
@@ -157,7 +153,7 @@ return function(FT)
         local rows = {header(loc(title_key, title_fallback))}
         local entries = group_entries(card_entries, group_name)
         split_cols = split_cols or 1
-        local base_toggle_opts = {w = 2.35, col_w = 2.35, scale = 0.76, label_scale = 0.34, row_padding = 0.005}
+        local base_toggle_opts = {w = 2.1, col_w = 2.1, scale = 0.72, label_scale = 0.32, row_padding = 0.003}
 
         if split_cols > 1 and #entries > 1 then
             local per_col = math.ceil(#entries / split_cols)
@@ -195,53 +191,86 @@ return function(FT)
             end
         end
 
-        if group_name == 'Joker' then
-            rows[#rows + 1] = {
-                n = G.UIT.R,
-                config = {align = 'cm', padding = 0.03},
-                nodes = {
-                    {
-                        n = G.UIT.T,
-                        config = {
-                            text = loc('ft_cfg_joker_special', 'Joker Special'),
-                            colour = G.C.UI.TEXT_LIGHT,
-                            scale = 0.34,
-                        },
-                    },
-                },
-            }
-            rows[#rows + 1] = toggle_row(
-                loc('ft_cfg_invisible_pretrigger', 'Show Invisible Joker copy before ready'),
-                cfg.cards,
-                'show_invisible_pretrigger',
-                nil,
-                {w = 2.35, col_w = 2.35, scale = 0.76, label_scale = 0.33, row_padding = 0.006}
-            )
-            rows[#rows + 1] = toggle_row(
-                loc('ft_cfg_purple_seal_preview', 'Show Purple Seal hand preview sequence'),
-                cfg.cards,
-                'show_purple_seal_preview',
-                nil,
-                {w = 2.35, col_w = 2.35, scale = 0.76, label_scale = 0.33, row_padding = 0.006}
-            )
-        end
-
         return {
             n = G.UIT.C,
-            config = {align = 'tm', padding = 0.04, minw = 2.45},
+            config = {align = 'tm', padding = 0.03, minw = 2.2},
             nodes = rows,
         }
     end
 
+    local function build_tarot_seal_column(card_entries)
+        local rows = {header(loc('ft_cfg_group_tarot', 'Tarot'))}
+        local tarot_entries = group_entries(card_entries, 'Tarot')
+        local base_toggle_opts = {w = 2.1, col_w = 2.1, scale = 0.72, label_scale = 0.32, row_padding = 0.003}
+
+        for _, entry in ipairs(tarot_entries) do
+            rows[#rows + 1] = toggle_row(
+                card_name(entry),
+                cfg.cards.enabled_by_key,
+                entry.key,
+                nil,
+                base_toggle_opts
+            )
+        end
+
+        rows[#rows + 1] = header(loc('ft_cfg_group_seal', 'Seal'))
+        rows[#rows + 1] = toggle_row(
+            loc('ft_cfg_purple_seal_preview', 'Show Purple Seal hand preview sequence'),
+            cfg.cards,
+            'show_purple_seal_preview',
+            nil,
+            base_toggle_opts
+        )
+
+        return {
+            n = G.UIT.C,
+            config = {align = 'tm', padding = 0.03, minw = 2.2},
+            nodes = rows,
+        }
+    end
+
+    local function build_joker_special_column()
+        local special_toggle_opts = {w = 2.2, col_w = 2.2, scale = 0.72, label_scale = 0.32, row_padding = 0.003}
+        return {
+            n = G.UIT.C,
+            config = {align = 'tm', padding = 0.03, minw = 2.3},
+            nodes = {
+                header(loc('ft_cfg_joker_special', 'Joker Special')),
+                toggle_row(
+                    loc('ft_cfg_invisible_pretrigger', 'Show Invisible Joker copy before ready'),
+                    cfg.cards,
+                    'show_invisible_pretrigger',
+                    nil,
+                    special_toggle_opts
+                ),
+                toggle_row(
+                    loc('ft_cfg_show_misprint_draw_preview', 'Show next draw after discard'),
+                    cfg.cards,
+                    'show_misprint_draw_preview',
+                    nil,
+                    special_toggle_opts
+                ),
+            },
+        }
+    end
+
+    local cached_card_entries = nil
+    local function get_card_entries()
+        if not cached_card_entries then
+            cached_card_entries = build_runtime_card_entries()
+        end
+        return cached_card_entries
+    end
+
     local function build_cards_tab()
-        local card_entries = build_runtime_card_entries()
+        local card_entries = get_card_entries()
         return {
             n = G.UIT.ROOT,
-            config = {r = 0.1, minw = 8.8, align = 'tm', padding = 0.15, colour = G.C.BLACK},
+            config = {r = 0.1, minw = 8.4, align = 'tm', padding = 0.12, colour = G.C.BLACK},
             nodes = {
                 {
                     n = G.UIT.R,
-                    config = {align = 'cm', padding = 0.05},
+                    config = {align = 'cm', padding = 0.04},
                     nodes = {
                         {
                             n = G.UIT.T,
@@ -255,11 +284,42 @@ return function(FT)
                 },
                 {
                     n = G.UIT.R,
-                    config = {align = 'tm', padding = 0.03},
+                    config = {align = 'tm', padding = 0.02},
                     nodes = {
-                        card_group_column(card_entries, 'Tarot', 'ft_cfg_group_tarot', 'Tarot', 1),
+                        build_tarot_seal_column(card_entries),
                         card_group_column(card_entries, 'Spectral', 'ft_cfg_group_spectral', 'Spectral', 2),
-                        card_group_column(card_entries, 'Joker', 'ft_cfg_group_joker', 'Joker', 1),
+                    },
+                },
+            },
+        }
+    end
+
+    local function build_joker_tab()
+        local card_entries = get_card_entries()
+        return {
+            n = G.UIT.ROOT,
+            config = {r = 0.1, minw = 8.4, align = 'tm', padding = 0.12, colour = G.C.BLACK},
+            nodes = {
+                {
+                    n = G.UIT.R,
+                    config = {align = 'cm', padding = 0.04},
+                    nodes = {
+                        {
+                            n = G.UIT.T,
+                            config = {
+                                text = loc('ft_cfg_cards_hint', 'Enable or disable Fortune Teller popup replacement per card'),
+                                colour = G.C.UI.TEXT_LIGHT,
+                                scale = 0.3,
+                            },
+                        },
+                    },
+                },
+                {
+                    n = G.UIT.R,
+                    config = {align = 'tm', padding = 0.02},
+                    nodes = {
+                        card_group_column(card_entries, 'Joker', 'ft_cfg_group_joker', 'Joker', 2),
+                        build_joker_special_column(),
                     },
                 },
             },
@@ -287,9 +347,16 @@ return function(FT)
                     {w = 2.35, col_w = 2.35}
                 ),
                 toggle_row(
-                    loc('ft_cfg_show_type_label', 'Hide all card labels'),
+                    loc('ft_cfg_hide_all_labels', 'Hide all card labels'),
                     cfg.display,
                     'hide_all_labels',
+                    nil,
+                    {w = 2.35, col_w = 2.35}
+                ),
+                toggle_row(
+                    loc('ft_cfg_prediction_timing_always', 'Show predictions outside trigger phase'),
+                    cfg.prediction,
+                    'timing_always',
                     nil,
                     {w = 2.35, col_w = 2.35}
                 ),
@@ -325,6 +392,10 @@ return function(FT)
     SMODS.current_mod.config_tab = build_cards_tab
     SMODS.current_mod.extra_tabs = function()
         return {
+            {
+                label = loc('ft_cfg_tab_joker', 'Joker'),
+                tab_definition_function = build_joker_tab,
+            },
             {
                 label = loc('ft_cfg_tab_display', 'Display'),
                 tab_definition_function = build_display_tab,

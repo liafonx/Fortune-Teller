@@ -7,6 +7,8 @@ return function(FT)
     local DEFAULT_MINI_POPUP_MINW = 1.5
     local MAX_MINI_POPUP_MINW = 2
 
+    local cached_layout = nil
+
     local function make_layout(cs)
         local k = cs / 0.56
         return {
@@ -185,18 +187,13 @@ return function(FT)
             return raw_key
         end
 
-        local key = raw_key
-        if #key >= 15 and key:sub(#key - 14) == '_SMODS_INTERNAL' then
-            if key:sub(1, 9) == 'negative_' then
-                key = 'negative'
-            else
-                local first_underscore = key:find('_')
-                local second_underscore = first_underscore and key:find('_', first_underscore + 1) or nil
-                if second_underscore then
-                    key = key:sub(1, second_underscore - 1)
-                else
-                    key = key:sub(1, #key - 15)
-                end
+        local key = raw_key:gsub('_SMODS_INTERNAL$', '')
+
+        -- Collapse any remaining "prefix_suffix" down to the prefix for SMODS internal keys
+        if key ~= raw_key then
+            local first_underscore = key:find('_')
+            if first_underscore then
+                key = key:sub(1, first_underscore - 1)
             end
         end
 
@@ -327,7 +324,10 @@ return function(FT)
     local M = {}
 
     function M.build_custom_popup(card, aut)
-        local layout = make_layout(CARD_SCALE)
+        if not cached_layout then
+            cached_layout = make_layout(CARD_SCALE)
+        end
+        local layout = cached_layout
         local debuffed = card.debuff
         local card_type_colour = get_type_colour(card.config.center or card.config, card)
         local card_type_background =

@@ -171,13 +171,78 @@ return function(FT)
                     n = G.UIT.T,
                     config = {
                         text = resolve_text_item(item),
-                        scale = layout.text_scale,
+                        scale = layout.text_scale * (item.scale or 1),
                         colour = text_colour,
                         shadow = true,
                     },
                 },
             },
         }
+    end
+
+    local function build_misprint_mult_node(item, text_width, layout)
+        local text_colour = (G and G.C and G.C['UI'] and G.C['UI'].TEXT_LIGHT) or G.C.WHITE
+        local plus_colour = (G and G.C and G.C.RED) or {1, 0.2, 0.2, 1}
+        local mult_value = tonumber(item.mult) or 0
+        local plus_text = (mult_value >= 0 and '+' or '') .. tostring(mult_value)
+        local mult_label = 'Mult'
+        if localize then
+            local ok, value = pcall(localize, 'k_mult')
+            if ok and type(value) == 'string' and value ~= '' and value ~= 'ERROR' and value ~= 'k_mult' then
+                mult_label = value
+            end
+        end
+
+        return {
+            n = G.UIT.C,
+            config = {
+                align = 'cm',
+                minw = text_width,
+                minh = layout.preview_h * layout.text_h_ratio,
+                colour = G.C.CLEAR,
+                padding = 0.01,
+            },
+            nodes = {
+                {
+                    n = G.UIT.R,
+                    config = {align = 'cm', minw = text_width * 0.9, minh = 0.3, padding = 0},
+                    nodes = {
+                        {
+                            n = G.UIT.T,
+                            config = {
+                                text = plus_text,
+                                scale = layout.text_scale * 0.95,
+                                colour = plus_colour,
+                                shadow = true,
+                            },
+                        },
+                    },
+                },
+                {
+                    n = G.UIT.R,
+                    config = {align = 'cm', minw = text_width * 0.9, minh = 0.22, padding = 0},
+                    nodes = {
+                        {
+                            n = G.UIT.T,
+                            config = {
+                                text = mult_label,
+                                scale = layout.text_scale * 0.76,
+                                colour = text_colour,
+                                shadow = true,
+                            },
+                        },
+                    },
+                },
+            },
+        }
+    end
+
+    local cached_nope_text = nil
+    local function get_nope_text()
+        if not cached_nope_text then
+            cached_nope_text = U.normalize_text(localize('k_nope_ex'))
+        end
+        return cached_nope_text
     end
 
     local function is_nope_text_item(item)
@@ -190,7 +255,7 @@ return function(FT)
         end
 
         local text = U.normalize_text(item.text)
-        local nope = U.normalize_text(localize('k_nope_ex'))
+        local nope = get_nope_text()
         return text and nope and text == nope
     end
 
@@ -260,15 +325,21 @@ return function(FT)
             }
         end
 
+        if item.kind == 'misprint_mult' then
+            return {
+                width = layout.preview_w,  -- card-sized slot
+                node = build_misprint_mult_node(item, layout.preview_w, layout),
+            }
+        end
+
         if item.kind ~= 'text' then
             return nil
         end
 
-        local text_width = layout.preview_w + layout.frame_padding
         local is_nope = is_nope_text_item(item)
-        if is_nope then
-            text_width = math.max(text_width, 1.08)
-        end
+        local text_width = is_nope
+            and layout.preview_w                        -- card-slot width (no extra frame_padding)
+            or  (layout.preview_w + layout.frame_padding)
 
         local node = is_nope
             and build_nope_static_node(item, text_width, layout)

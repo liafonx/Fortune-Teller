@@ -36,24 +36,29 @@ function M.set_debug_mode(enabled)
     M._debug_mode = not not enabled
 end
 
+local function format_and_print(module_name, level, msg)
+    if type(msg) == 'function' then
+        msg = msg()
+    end
+
+    local parts = {M._prefix}
+    if module_name and module_name ~= "" then
+        parts[#parts + 1] = "[" .. module_name .. "]"
+    end
+    if level and level ~= "" then
+        parts[#parts + 1] = "[" .. tostring(level) .. "]"
+    end
+    parts[#parts + 1] = " " .. tostring(msg)
+
+    pcall(print, table.concat(parts))
+end
+
 function M.create(module_name)
     return function(level, msg)
         if not should_log(level) then
             return
         end
-
-        local full_msg
-        if module_name and module_name ~= "" then
-            if level and level ~= "" then
-                full_msg = M._prefix .. "[" .. module_name .. "][" .. tostring(level) .. "] " .. tostring(msg)
-            else
-                full_msg = M._prefix .. "[" .. module_name .. "] " .. tostring(msg)
-            end
-        else
-            full_msg = M._prefix .. " " .. tostring(msg)
-        end
-
-        pcall(print, full_msg)
+        format_and_print(module_name, level, msg)
     end
 end
 
@@ -61,15 +66,7 @@ function M.log(level, msg)
     if not should_log(level) then
         return
     end
-
-    local full_msg
-    if level and level ~= "" then
-        full_msg = M._prefix .. "[" .. tostring(level) .. "] " .. tostring(msg)
-    else
-        full_msg = M._prefix .. " " .. tostring(msg)
-    end
-
-    pcall(print, full_msg)
+    format_and_print(nil, level, msg)
 end
 
 return M

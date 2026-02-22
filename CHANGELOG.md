@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0
+
+- Added hover predictions for 12 jokers: 8 Ball, Misprint, Madness, Riff-Raff, Hallucination, Vagabond, Superposition, Cartomancer, Sixth Sense, Seance, Certificate, and Perkeo.
+- Joker predictions are phase-gated: forecasts show only when the joker's trigger phase is active (e.g. during a blind for scoring jokers, in the shop for shop jokers).
+- Added "Timing: Always" config option to show select joker predictions outside their active phase.
+- Blueprint and Brainstorm now show the copied joker's prediction when hovered.
+- Misprint prediction integrates with JokerDisplay to show the deterministic next mult value.
+
+## 0.1.2
+
+- Fixed predictions not applying vanilla duplicate-prevention rules for multi-card generation (Emperor, High Priestess, Purple Seal).
+- Predictions now match vanilla behavior: without Showman, duplicate cards are filtered; with Showman, duplicates are allowed.
+
 ## 0.1.1
 
 - Added Purple Seal hand preview — highlight Purple Seal cards to see the next Tarot outcomes.

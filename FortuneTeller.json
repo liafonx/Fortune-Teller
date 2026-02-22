@@ -9,7 +9,7 @@
   "priority": 0,
   "badge_colour": "5A6778",
   "badge_text_colour": "FFFFFF",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "config": {
     "cards": {
       "enabled_by_key": {
@@ -29,14 +29,31 @@
         "c_grim": true,
         "c_incantation": true,
         "c_immolate": true,
-        "j_invisible": true
+        "j_invisible": true,
+        "j_8_ball": true,
+        "j_misprint": true,
+        "j_madness": true,
+        "j_riff_raff": true,
+        "j_hallucination": true,
+        "j_vagabond": true,
+        "j_superposition": true,
+        "j_cartomancer": true,
+        "j_sixth_sense": true,
+        "j_seance": true,
+        "j_certificate": true,
+        "j_perkeo": true
       },
-      "show_invisible_pretrigger": false
+      "show_invisible_pretrigger": false,
+      "show_purple_seal_preview": true,
+      "show_misprint_draw_preview": false
     },
     "display": {
       "show_main_popup_name": false,
       "show_effect_popup": true,
-      "show_type_label": true
+      "hide_all_labels": false
+    },
+    "prediction": {
+      "timing_always": false
     },
     "logging": {
       "verbose": false

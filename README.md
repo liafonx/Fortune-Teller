@@ -11,17 +11,28 @@ Preview what cards will do before you use them — hover to see the outcome.
 
 ## Supported Cards
 
+**Tarot**
 - Wheel of Fortune (shows the target joker, or "Nope!" if it would fail)
 - The Emperor, The High Priestess (shows all cards that would be created)
 - Judgement, The Soul, Wraith
-- Invisible Joker
+
+**Spectral**
 - Aura, Sigil, Ouija, Hex, Ectoplasm, Ankh
 - Familiar, Grim, Incantation, Immolate
+
+**Joker**
+- 8 Ball, Misprint, Madness, Riff-Raff, Hallucination
+- Vagabond, Superposition, Cartomancer, Sixth Sense, Seance, Certificate, Perkeo
+- Invisible Joker
+- Blueprint and Brainstorm show the copied joker's prediction when hovered
+
+**Seal**
 - Purple Seal (highlight cards in hand to preview the next Tarot outcomes)
 
 ## Config
 
 In the mod settings tabs:
-- **Cards** — turn predictions on/off per card, toggle Purple Seal preview and Invisible Joker early display.
-- **Display** — show/hide card name, effect popup, and badge labels.
+- **Cards** — turn Tarot/Spectral predictions on/off per card; toggle Purple Seal hand preview.
+- **Jokers** — turn joker predictions on/off per joker; special options for Invisible Joker early display and Misprint draw preview.
+- **Display** — show/hide card name, effect popup, and badge labels; toggle showing predictions outside a joker's active phase.
 - **Logging** — enable detailed logs for troubleshooting.

@@ -35,6 +35,19 @@ return function(S)
         c_immolate = S.predict_immolate,
 
         j_invisible = S.predict_invisible_joker,
+
+        j_8_ball        = S.predict_8_ball,
+        j_misprint      = S.predict_misprint,
+        j_madness       = S.predict_madness,
+        j_riff_raff     = S.predict_riff_raff,
+        j_hallucination = S.predict_hallucination,
+        j_vagabond      = S.predict_vagabond,
+        j_superposition = S.predict_superposition,
+        j_cartomancer   = S.predict_cartomancer,
+        j_sixth_sense   = S.predict_sixth_sense,
+        j_seance        = S.predict_seance,
+        j_certificate   = S.predict_certificate,
+        j_perkeo        = S.predict_perkeo,
     }
 
     return {

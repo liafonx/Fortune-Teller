@@ -9,13 +9,7 @@ FT.config = FT.config or {}
 FT.modules = FT.modules or {}
 
 local function load_module(path)
-    if SMODS and SMODS.load_file then
-        local chunk, err = SMODS.load_file(path)
-        assert(chunk, err or ('failed to load module: ' .. tostring(path)))
-        return chunk()
-    end
-
-    local chunk, err = loadfile(path)
+    local chunk, err = SMODS.load_file(path)
     assert(chunk, err or ('failed to load module: ' .. tostring(path)))
     return chunk()
 end
@@ -39,6 +33,7 @@ local log = (FT.Logger and FT.Logger.create and FT.Logger.create('Main')) or fun
 
 local module_paths = {
     'Utils/utils.lua',
+    'Core/run_state_hooks.lua',
     'Core/predictors/engine.lua',
     'UI/preview_cards.lua',
     'Core/ui_hooks.lua',
