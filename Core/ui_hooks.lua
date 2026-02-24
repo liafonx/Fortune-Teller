@@ -265,8 +265,7 @@ return function(FT)
             mult_obj:update_text(true)
         end
 
-        local show_draw = FT.config_api and FT.config_api.show_misprint_draw_preview and FT.config_api.show_misprint_draw_preview()
-        local draw_token = show_draw and U.misprint_draw_preview_token and U.misprint_draw_preview_token() or nil
+        local draw_token = U.misprint_draw_preview_token and U.misprint_draw_preview_token() or nil
         if draw_token then
             -- Keep symmetric padding so centered alignment remains stable.
             line_obj.config.string = {' ' .. draw_token .. ' '}

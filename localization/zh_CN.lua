@@ -6,8 +6,6 @@ return {
             ft_cfg_group_seal = '蜡封',
             ft_cfg_group_spectral = '幻灵牌',
             ft_cfg_group_joker = '小丑牌',
-            ft_cfg_joker_special = '特殊项',
-            ft_cfg_invisible_pretrigger = '隐形小丑未就绪时显示复制',
             ft_cfg_purple_seal_preview = '显示紫蜡预测序列',
 
             ft_cfg_tab_display = '显示',
@@ -16,7 +14,6 @@ return {
             ft_cfg_show_effect_popup = '显示小弹窗（卡牌效果说明）',
             ft_cfg_hide_all_labels = '隐藏全部卡牌标签',
 
-            ft_cfg_show_misprint_draw_preview = '印错小丑显示下一张摸牌',
             ft_cfg_prediction_timing_always = '在触发阶段外显示预测',
 
             ft_cfg_tab_logging = '日志',

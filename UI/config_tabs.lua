@@ -229,31 +229,6 @@ return function(FT)
         }
     end
 
-    local function build_joker_special_column()
-        local special_toggle_opts = {w = 2.2, col_w = 2.2, scale = 0.72, label_scale = 0.32, row_padding = 0.003}
-        return {
-            n = G.UIT.C,
-            config = {align = 'tm', padding = 0.03, minw = 2.3},
-            nodes = {
-                header(loc('ft_cfg_joker_special', 'Joker Special')),
-                toggle_row(
-                    loc('ft_cfg_invisible_pretrigger', 'Show Invisible Joker copy before ready'),
-                    cfg.cards,
-                    'show_invisible_pretrigger',
-                    nil,
-                    special_toggle_opts
-                ),
-                toggle_row(
-                    loc('ft_cfg_show_misprint_draw_preview', 'Show next draw after discard'),
-                    cfg.cards,
-                    'show_misprint_draw_preview',
-                    nil,
-                    special_toggle_opts
-                ),
-            },
-        }
-    end
-
     local cached_card_entries = nil
     local function get_card_entries()
         if not cached_card_entries then
@@ -319,7 +294,6 @@ return function(FT)
                     config = {align = 'tm', padding = 0.02},
                     nodes = {
                         card_group_column(card_entries, 'Joker', 'ft_cfg_group_joker', 'Joker', 2),
-                        build_joker_special_column(),
                     },
                 },
             },

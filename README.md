@@ -33,6 +33,6 @@ Preview what cards will do before you use them — hover to see the outcome.
 
 In the mod settings tabs:
 - **Cards** — turn Tarot/Spectral predictions on/off per card; toggle Purple Seal hand preview.
-- **Jokers** — turn joker predictions on/off per joker; special options for Invisible Joker early display and Misprint draw preview.
+- **Jokers** — turn joker predictions on/off per joker.
 - **Display** — show/hide card name, effect popup, and badge labels; toggle showing predictions outside a joker's active phase.
 - **Logging** — enable detailed logs for troubleshooting.

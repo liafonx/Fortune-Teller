@@ -25,18 +25,9 @@ return function(FT)
         j_perkeo = 'shop',
     }
 
-    -- Only these keys can have their phase gate bypassed by timing_always.
-    local TIMING_ALWAYS_KEYS = {
-        j_madness = true, j_cartomancer = true, j_certificate = true, j_perkeo = true,
-        j_riff_raff = true,
-    }
-
-    local function phase_allowed(center_key)
+    local function check_natural_phase(center_key)
         local phase = TRIGGER_PHASE[center_key]
-        if not phase then return true end  -- not phase-gated; always allowed
-        if FT.config_api.prediction_timing_always() and TIMING_ALWAYS_KEYS[center_key] then
-            return true  -- bypass phase gate for whitelisted keys only
-        end
+        if not phase then return true end
         if phase == 'blind'        then return U.is_playing_blind() end
         if phase == 'blind_select' then return U.is_in_blind_select() end
         if phase == 'shop' then return U.is_in_shop() end
@@ -114,7 +105,11 @@ return function(FT)
         end
 
         -- Phase check and routing operate on effective key, not hovered key.
-        if not phase_allowed(effective_center_key) then return nil end
+        local in_natural_phase = check_natural_phase(effective_center_key)
+        local assume_trigger = not not FT.config_api.prediction_timing_always()
+        if not in_natural_phase and not assume_trigger then
+            return nil
+        end
         local resolver = P.routes_by_key and P.routes_by_key[effective_center_key]
         if not resolver then return nil end
 
@@ -122,7 +117,7 @@ return function(FT)
         -- 1) effective_card: read ability/config from the actual copied joker
         -- 2) hovered card: preserve slot-order semantics for effects that depend on call order
         --    (e.g. j_misprint copies in joker iteration order).
-        local result = resolver(effective_card, card)
+        local result = resolver(effective_card, card, assume_trigger)
         if not result then
             log('debug', 'Predictor route returned no preview for card: key=' .. tostring(effective_center_key))
         end

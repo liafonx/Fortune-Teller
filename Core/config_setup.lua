@@ -27,9 +27,7 @@ return function(FT)
                 j_cartomancer = true, j_sixth_sense = true, j_seance = true,
                 j_certificate = true, j_perkeo = true,
             },
-            show_invisible_pretrigger = false,
             show_purple_seal_preview = true,
-            show_misprint_draw_preview = false,
         },
         display = {
             show_main_popup_name = false,
@@ -37,7 +35,7 @@ return function(FT)
             hide_all_labels = false,
         },
         prediction = {
-            timing_always = false,
+            timing_always = true,
         },
         logging = {
             verbose = false,
@@ -153,9 +151,7 @@ return function(FT)
         return true
     end
 
-    function api.show_invisible_pretrigger() return config_flag('cards', 'show_invisible_pretrigger') end
     function api.show_purple_seal_preview() return config_flag('cards', 'show_purple_seal_preview') end
-    function api.show_misprint_draw_preview() return config_flag('cards', 'show_misprint_draw_preview') end
     function api.prediction_timing_always() return config_flag('prediction', 'timing_always') end
     function api.show_main_popup_name() return config_flag('display', 'show_main_popup_name') end
     function api.show_effect_popup() return config_flag('display', 'show_effect_popup') end

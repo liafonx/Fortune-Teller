@@ -43,9 +43,7 @@
         "j_certificate": true,
         "j_perkeo": true
       },
-      "show_invisible_pretrigger": false,
-      "show_purple_seal_preview": true,
-      "show_misprint_draw_preview": false
+      "show_purple_seal_preview": true
     },
     "display": {
       "show_main_popup_name": false,
@@ -53,7 +51,7 @@
       "hide_all_labels": false
     },
     "prediction": {
-      "timing_always": false
+      "timing_always": true
     },
     "logging": {
       "verbose": false

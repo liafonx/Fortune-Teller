@@ -395,19 +395,15 @@ return function(FT)
         end)
     end
 
-    function S.predict_invisible_joker(card)
+    function S.predict_invisible_joker(card, _, assume_trigger)
         if not (card and card.ability) then
             return nil
         end
-        local show_pretrigger = FT.config_api and FT.config_api.show_invisible_pretrigger and FT.config_api.show_invisible_pretrigger()
-        if not show_pretrigger and card.ability.invis_rounds < card.ability.extra then
+        if not assume_trigger and card.ability.invis_rounds < card.ability.extra then
             return nil
         end
-        local joker_cards, joker_config = get_joker_state()
-        if not (joker_cards and joker_config) then
-            return nil
-        end
-        if #joker_cards > joker_config.card_limit then
+        local joker_cards = get_joker_state()
+        if not joker_cards then
             return nil
         end
 
@@ -486,13 +482,16 @@ return function(FT)
         end)
     end
 
-    function S.predict_8_ball(card)
+    function S.predict_8_ball(card, _, assume_trigger)
         local highlighted = G and G.hand and G.hand.highlighted or {}
         local eights = 0
         for _, c in ipairs(highlighted) do
             if c and c:get_id() == 8 and not c.debuff then eights = eights + 1 end
         end
-        if eights == 0 then return nil end
+        if eights == 0 then
+            if not assume_trigger then return nil end
+            eights = 1
+        end
         local copies = U.count_joker_copies('j_8_ball')
         local slot_cap = slot_budget(card)
         if slot_cap == 0 then return nil end
@@ -516,12 +515,13 @@ return function(FT)
         }}
     end
 
-    function S.predict_madness(card)
+    function S.predict_madness(card, _, assume_trigger)
         -- Boss blind gate: j_madness doesn't fire on boss blinds (card.lua:2503).
         -- Also suppress preview when the upcoming blind on deck is Boss.
-        -- Trigger conditions — not bypassed by timing_always.
-        if G and G.GAME and G.GAME.blind and G.GAME.blind.boss then return nil end
-        if U.is_next_blind_boss and U.is_next_blind_boss() then return nil end
+        if not assume_trigger then
+            if G and G.GAME and G.GAME.blind and G.GAME.blind.boss then return nil end
+            if U.is_next_blind_boss and U.is_next_blind_boss() then return nil end
+        end
         local joker_cards, joker_config = get_joker_state()
         if not joker_cards then return nil end
         -- Collect direct Madness copies in joker-area order (card.lua:2503: not context.blueprint)
@@ -578,12 +578,12 @@ return function(FT)
         end)
     end
 
-    function S.predict_hallucination(card)
+    function S.predict_hallucination(card, _, assume_trigger)
         local copies = U.count_joker_copies('j_hallucination')
         local packs = U.shop_packs_remaining()
         -- Support choosing-blind saves: if no shop packs are instantiated yet, reserve one
         -- virtual "next pack" preview while on blind-select.
-        if packs == 0 and U.is_in_blind_select() then
+        if packs == 0 and (U.is_in_blind_select() or assume_trigger) then
             packs = 1
         end
         if copies == 0 or packs == 0 then return nil end
@@ -599,9 +599,11 @@ return function(FT)
         })
     end
 
-    function S.predict_vagabond(card)
-        local threshold_dollars = card.ability.extra or 4
-        if not (G and G.GAME and G.GAME.dollars <= threshold_dollars) then return nil end
+    function S.predict_vagabond(card, _, assume_trigger)
+        if not assume_trigger then
+            local threshold_dollars = card.ability.extra or 4
+            if not (G and G.GAME and G.GAME.dollars <= threshold_dollars) then return nil end
+        end
         local copies = U.count_joker_copies('j_vagabond')
         local count = consumeable_slot_count(card, copies)
         if count == 0 then return nil end
@@ -610,15 +612,17 @@ return function(FT)
         end)
     end
 
-    function S.predict_superposition(card)
-        local hand_text, scoring_hand = U.highlighted_hand_type()
-        if hand_text ~= 'Straight' then return nil end
-        -- Vanilla loops scoring_hand and checks get_id() == 14 for Ace (card.lua:3762-3770)
-        local has_ace = false
-        for _, c in ipairs(scoring_hand or {}) do
-            if c:get_id() == 14 then has_ace = true; break end
+    function S.predict_superposition(card, _, assume_trigger)
+        if not assume_trigger then
+            local hand_text, scoring_hand = U.highlighted_hand_type()
+            if hand_text ~= 'Straight' then return nil end
+            -- Vanilla loops scoring_hand and checks get_id() == 14 for Ace (card.lua:3762-3770)
+            local has_ace = false
+            for _, c in ipairs(scoring_hand or {}) do
+                if c:get_id() == 14 then has_ace = true; break end
+            end
+            if not has_ace then return nil end
         end
-        if not has_ace then return nil end
         local copies = U.count_joker_copies('j_superposition')
         local count = consumeable_slot_count(card, copies)
         if count == 0 then return nil end
@@ -636,18 +640,20 @@ return function(FT)
         end)
     end
 
-    function S.predict_sixth_sense(card)
-        -- First hand constraint: G.GAME.current_round.hands_played == 0 (card.lua:2604)
-        if not (G and G.GAME and G.GAME.current_round
-                and G.GAME.current_round.hands_played == 0) then
-            return nil
-        end
-        local highlighted = G and G.hand and G.hand.highlighted or {}
-        -- Vanilla: exactly one card played, that card is a 6 (card.lua:2604: #context.full_hand == 1)
-        if #highlighted ~= 1
-                or highlighted[1]:get_id() ~= 6
-                or highlighted[1].debuff then
-            return nil
+    function S.predict_sixth_sense(card, _, assume_trigger)
+        if not assume_trigger then
+            -- First hand constraint: G.GAME.current_round.hands_played == 0 (card.lua:2604)
+            if not (G and G.GAME and G.GAME.current_round
+                    and G.GAME.current_round.hands_played == 0) then
+                return nil
+            end
+            local highlighted = G and G.hand and G.hand.highlighted or {}
+            -- Vanilla: exactly one card played, that card is a 6 (card.lua:2604: #context.full_hand == 1)
+            if #highlighted ~= 1
+                    or highlighted[1]:get_id() ~= 6
+                    or highlighted[1].debuff then
+                return nil
+            end
         end
         -- Direct count only: Blueprint/Brainstorm cannot trigger Sixth Sense (card.lua:2603)
         local copies = U.count_direct_joker_copies('j_sixth_sense')
@@ -658,11 +664,13 @@ return function(FT)
         end)
     end
 
-    function S.predict_seance(card)
-        local required_hand = card.ability and card.ability.extra and card.ability.extra.poker_hand
-        if required_hand then
-            local hand_text = U.highlighted_hand_type()  -- first return value only
-            if hand_text ~= required_hand then return nil end
+    function S.predict_seance(card, _, assume_trigger)
+        if not assume_trigger then
+            local required_hand = card.ability and card.ability.extra and card.ability.extra.poker_hand
+            if required_hand then
+                local hand_text = U.highlighted_hand_type()  -- first return value only
+                if hand_text ~= required_hand then return nil end
+            end
         end
         local copies = U.count_joker_copies('j_seance')
         local count = consumeable_slot_count(card, copies)
