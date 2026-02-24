@@ -615,8 +615,9 @@ return function(FT)
     function S.predict_superposition(card, _, assume_trigger)
         if not assume_trigger then
             local hand_text, scoring_hand = U.highlighted_hand_type()
-            if hand_text ~= 'Straight' then return nil end
-            -- Vanilla loops scoring_hand and checks get_id() == 14 for Ace (card.lua:3762-3770)
+            -- Vanilla checks poker_hands["Straight"] which is populated for both Straight and
+            -- Straight Flush (a Straight Flush's cards also form a Straight). (card.lua:3762-3770)
+            if hand_text ~= 'Straight' and hand_text ~= 'Straight Flush' then return nil end
             local has_ace = false
             for _, c in ipairs(scoring_hand or {}) do
                 if c:get_id() == 14 then has_ace = true; break end
