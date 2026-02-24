@@ -3,8 +3,6 @@ return function(FT)
     local log = (FT.Logger and FT.Logger.create and FT.Logger.create('Predictors')) or function() end
 
     local S = {}
-    local SUIT_KEYS = {'S', 'H', 'D', 'C'}
-    local RANK_KEYS = {'2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'}
     local PURPLE_SEAL_PREVIEW_MAX = 3
     local PURPLE_SEAL_TAROT_KEY_APPEND = '8ba'
 
@@ -135,15 +133,17 @@ return function(FT)
 
     function S.predict_sigil()
         return predict_base_card_front('sigil', function(seed_key)
-            local suit = pseudorandom_element(SUIT_KEYS, pseudoseed(seed_key))
-            return suit and G.P_CARDS[suit .. '_A'] or nil
+            local suit_obj = pseudorandom_element(SMODS.Suits, pseudoseed(seed_key))
+            local card_key = suit_obj and suit_obj.card_key
+            return card_key and G.P_CARDS[card_key .. '_A'] or nil
         end)
     end
 
     function S.predict_ouija()
         return predict_base_card_front('ouija', function(seed_key)
-            local rank = pseudorandom_element(RANK_KEYS, pseudoseed(seed_key))
-            return rank and G.P_CARDS['H_' .. rank] or nil
+            local rank_obj = pseudorandom_element(SMODS.Ranks, pseudoseed(seed_key))
+            local card_key = rank_obj and rank_obj.card_key
+            return card_key and G.P_CARDS['H_' .. card_key] or nil
         end)
     end
 
@@ -277,14 +277,17 @@ return function(FT)
             for _ = 1, create_count do
                 local suit, rank
                 if card_key == 'c_familiar' then
+                    local suit_obj = pseudorandom_element(SMODS.Suits, pseudoseed('familiar_create'))
+                    suit = suit_obj and suit_obj.card_key
                     rank = pseudorandom_element({'J', 'Q', 'K'}, pseudoseed('familiar_create'))
-                    suit = pseudorandom_element(SUIT_KEYS, pseudoseed('familiar_create'))
                 elseif card_key == 'c_grim' then
+                    local suit_obj = pseudorandom_element(SMODS.Suits, pseudoseed('grim_create'))
+                    suit = suit_obj and suit_obj.card_key
                     rank = 'A'
-                    suit = pseudorandom_element(SUIT_KEYS, pseudoseed('grim_create'))
                 elseif card_key == 'c_incantation' then
+                    local suit_obj = pseudorandom_element(SMODS.Suits, pseudoseed('incantation_create'))
+                    suit = suit_obj and suit_obj.card_key
                     rank = pseudorandom_element({'2', '3', '4', '5', '6', '7', '8', '9', 'T'}, pseudoseed('incantation_create'))
-                    suit = pseudorandom_element(SUIT_KEYS, pseudoseed('incantation_create'))
                 end
 
                 local created = build_created_playing_descriptor(suit, rank)
