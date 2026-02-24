@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.5
+
+- Fixed Sigil, Ouija, Familiar, Grim, and Incantation predictions not matching what the game actually produces.
+- Fixed Superposition prediction not showing for Straight Flush hands.
+- Removed per-joker toggles for Invisible Joker and Misprint; 
+- Timing is now controlled solely by the global "Show predictions outside trigger phase" setting.
+
+
 ## 0.2.0
 
 - Added hover predictions for 12 jokers: 8 Ball, Misprint, Madness, Riff-Raff, Hallucination, Vagabond, Superposition, Cartomancer, Sixth Sense, Seance, Certificate, and Perkeo.
