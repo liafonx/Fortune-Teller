@@ -120,19 +120,6 @@ return function(FT)
         }
     end
 
-    function U.consumeable_free_slots(card)
-        if not (G and G.consumeables and G.consumeables.config) then
-            return 0
-        end
-
-        local delta = 0
-        if card and card.area == G.consumeables and card.ability and card.ability.consumeable then
-            delta = 1
-        end
-
-        return math.max(0, G.consumeables.config.card_limit - #G.consumeables.cards + delta)
-    end
-
     function U.can_spawn_joker(card)
         if not (G and G.jokers and G.jokers.config) then
             return false
@@ -571,17 +558,6 @@ return function(FT)
 
     function U.center_key_of(entry)
         return entry and entry.config and entry.config.center and entry.config.center.key or 'nil'
-    end
-
-    function U.pool_summary(entries)
-        local out = {}
-        for i = 1, #(entries or {}) do
-            local e = entries[i]
-            out[#out + 1] = tostring(i)
-                .. ':' .. tostring(e and e.sort_id or 'nil')
-                .. ':' .. tostring(U.center_key_of(e))
-        end
-        return table.concat(out, ' | ')
     end
 
     log("info", "Utility module initialized")

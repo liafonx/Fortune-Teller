@@ -68,18 +68,17 @@ return function(FT)
     end
 
     function P.predict_descriptors(card)
-        if not (card and card.ability and G and G.GAME) then
-            return nil
-        end
+        if not (card and card.ability and G and G.GAME) then return nil end
+        if not FT.config_api then return nil end
 
         if is_purple_seal_hand_highlight(card)
             and shared.predict_purple_seal_tarot
-            and (not FT.config_api or not FT.config_api.show_purple_seal_preview or FT.config_api.show_purple_seal_preview()) then
+            and (not FT.config_api.show_purple_seal_preview or FT.config_api.show_purple_seal_preview()) then
             return shared.predict_purple_seal_tarot(card)
         end
 
         local center_key = card.config and card.config.center and card.config.center.key
-        if FT.config_api and FT.config_api.is_card_enabled and not FT.config_api.is_card_enabled(center_key) then
+        if FT.config_api.is_card_enabled and not FT.config_api.is_card_enabled(center_key) then
             return nil
         end
 
@@ -99,8 +98,7 @@ return function(FT)
 
         -- Non-blueprint-compatible jokers must not show predictions when their effect is
         -- reached via a copy joker hover (hovered card ≠ effective card).
-        local hovered_key = card.config and card.config.center and card.config.center.key
-        if hovered_key ~= effective_center_key and NON_BLUEPRINT_KEYS[effective_center_key] then
+        if center_key ~= effective_center_key and NON_BLUEPRINT_KEYS[effective_center_key] then
             return nil
         end
 

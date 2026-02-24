@@ -17,9 +17,9 @@ return function(FT)
 
     local function get_joker_state()
         if not (G and G.jokers and G.jokers.cards and G.jokers.config) then
-            return nil, nil
+            return nil
         end
-        return G.jokers.cards, G.jokers.config
+        return G.jokers.cards
     end
 
     local cached_enhanced_pool = nil
@@ -53,51 +53,37 @@ return function(FT)
         return math.min(math.max(1, slot_cap), count)
     end
 
+    -- Picks N centers of card_type using key_append; handles Showman gate internally.
+    -- count should already be clamped to available slots by caller.
+    -- Caches has_showman once per call to avoid O(jokers) scan per item.
+    -- When abort_on_nil is true, returns nil immediately if any center pick fails.
+    local function pick_n_centers(card_type, key_append, count, rarity, abort_on_nil)
+        local showman = U.has_showman()  -- cache once, not per-iteration
+        local results = {}
+        for _ = 1, count do
+            local center = U.pick_center(card_type, rarity, nil, nil, key_append)
+            if not center then
+                if abort_on_nil then return nil end
+            else
+                if not showman then G.GAME.used_jokers[center.key] = true end
+                results[#results + 1] = {center = center}
+            end
+        end
+        return #results > 0 and results or nil
+    end
+
     function S.predict_multi_consumables(card_type, key_append, amount)
         local count = amount or 0
-        if count <= 0 then
-            log('debug', 'No multi-consumable prediction count for ' .. tostring(card_type))
-            return nil
-        end
-
+        if count <= 0 then return nil end
         return U.with_prediction_snapshot(function()
-            local showman = U.has_showman()
-            local out = {}
-            for _ = 1, count do
-                local center = U.pick_center(card_type, nil, nil, nil, key_append)
-                if not center then
-                    log('error', 'Failed to pick center for ' .. tostring(card_type) .. ' (' .. tostring(key_append) .. ')')
-                    return nil
-                end
-                out[#out + 1] = {center = center}
-                if not showman then G.GAME.used_jokers[center.key] = true end
-            end
-            return out
+            return pick_n_centers(card_type, key_append, count, nil, true)
         end)
     end
 
     function S.predict_purple_seal_tarot(card)
-        if not (card and card.seal == 'Purple') then
-            return nil
-        end
-
-        return U.with_prediction_snapshot(function()
-            local count = count_highlighted_purple_seals()
-            local showman = U.has_showman()
-            local out = {}
-
-            for _ = 1, count do
-                local center = U.pick_center('Tarot', nil, nil, nil, PURPLE_SEAL_TAROT_KEY_APPEND)
-                if not center then
-                    log('error', 'Failed to pick Tarot center for purple seal preview sequence')
-                    return nil
-                end
-                out[#out + 1] = {center = center}
-                if not showman then G.GAME.used_jokers[center.key] = true end
-            end
-
-            return out
-        end)
+        if not (card and card.seal == 'Purple') then return nil end
+        local count = count_highlighted_purple_seals()
+        return S.predict_multi_consumables('Tarot', PURPLE_SEAL_TAROT_KEY_APPEND, count)
     end
 
     local function predict_base_card_front(seed_key, front_resolver, edition)
@@ -426,31 +412,15 @@ return function(FT)
         end)
     end
 
-    -- Picks N centers of card_type using key_append; handles Showman gate internally.
-    -- count should already be clamped to available slots by caller.
-    -- Caches has_showman once per call to avoid O(jokers) scan per item.
-    local function pick_n_centers(card_type, key_append, count, rarity)
-        local showman = U.has_showman()  -- cache once, not per-iteration
-        local results = {}
-        for _ = 1, count do
-            local center = U.pick_center(card_type, rarity, nil, nil, key_append)
-            if center then
-                if not showman then G.GAME.used_jokers[center.key] = true end
-                results[#results + 1] = {center = center}
-            end
-        end
-        return #results > 0 and results or nil
-    end
-
     -- Dynamic base consumable slot count (0 if unavailable).
     -- This intentionally ignores current fill.
-    local function slot_budget(card)
+    local function slot_budget()
         return math.max(0, U.consumeable_max_slots())
     end
 
     -- Resolves effective slot count for simple (non-tracking) consumable-generating predictors.
-    local function consumeable_slot_count(card, intended)
-        return math.min(intended, slot_budget(card))
+    local function consumeable_slot_count(intended)
+        return math.min(intended, slot_budget())
     end
 
     -- Shared helper: rolls probability-based Tarot generation with Nope display.
@@ -493,7 +463,7 @@ return function(FT)
             eights = 1
         end
         local copies = U.count_joker_copies('j_8_ball')
-        local slot_cap = slot_budget(card)
+        local slot_cap = slot_budget()
         if slot_cap == 0 then return nil end
         return predict_probability_tarot({
             seed       = '8ball',
@@ -522,26 +492,25 @@ return function(FT)
             if G and G.GAME and G.GAME.blind and G.GAME.blind.boss then return nil end
             if U.is_next_blind_boss and U.is_next_blind_boss() then return nil end
         end
-        local joker_cards, joker_config = get_joker_state()
+        local joker_cards = get_joker_state()
         if not joker_cards then return nil end
-        -- Collect direct Madness copies in joker-area order (card.lua:2503: not context.blueprint)
+        -- Collect direct Madness copies and base eligible pool in a single pass.
+        -- debuff check only applies to madness_cards; vanilla Madness can destroy debuffed jokers.
         local madness_cards = {}
+        local base_eligible = {}
         for _, j in ipairs(joker_cards) do
-            if j and not j.debuff
-                    and j.config and j.config.center
-                    and j.config.center.key == 'j_madness' then
-                madness_cards[#madness_cards + 1] = j
-            end
-        end
-        if #madness_cards == 0 then return nil end
-        return U.with_prediction_snapshot(function()
-            -- Base eligible pool: non-eternal, not already getting_sliced
-            local base_eligible = {}
-            for _, j in ipairs(joker_cards) do
+            if j then
+                if not j.debuff and j.config and j.config.center
+                        and j.config.center.key == 'j_madness' then
+                    madness_cards[#madness_cards + 1] = j
+                end
                 if not (j.ability and j.ability.eternal) and not j.getting_sliced then
                     base_eligible[#base_eligible + 1] = j
                 end
             end
+        end
+        if #madness_cards == 0 then return nil end
+        return U.with_prediction_snapshot(function()
             local results = {}
             local claimed = {}  -- jokers chosen by earlier copies in this simulation
             for _, m in ipairs(madness_cards) do
@@ -587,7 +556,7 @@ return function(FT)
             packs = 1
         end
         if copies == 0 or packs == 0 then return nil end
-        local slot_cap = slot_budget(card)
+        local slot_cap = slot_budget()
         if slot_cap == 0 then return nil end
         local ante = G.GAME.round_resets and G.GAME.round_resets.ante or 1
         return predict_probability_tarot({
@@ -605,7 +574,7 @@ return function(FT)
             if not (G and G.GAME and G.GAME.dollars <= threshold_dollars) then return nil end
         end
         local copies = U.count_joker_copies('j_vagabond')
-        local count = consumeable_slot_count(card, copies)
+        local count = consumeable_slot_count(copies)
         if count == 0 then return nil end
         return U.with_prediction_snapshot(function()
             return pick_n_centers('Tarot', 'vag', count)
@@ -625,7 +594,7 @@ return function(FT)
             if not has_ace then return nil end
         end
         local copies = U.count_joker_copies('j_superposition')
-        local count = consumeable_slot_count(card, copies)
+        local count = consumeable_slot_count(copies)
         if count == 0 then return nil end
         return U.with_prediction_snapshot(function()
             return pick_n_centers('Tarot', 'sup', count)
@@ -634,7 +603,7 @@ return function(FT)
 
     function S.predict_cartomancer(card)
         local copies = U.count_joker_copies('j_cartomancer')
-        local count = consumeable_slot_count(card, copies)
+        local count = consumeable_slot_count(copies)
         if count == 0 then return nil end
         return U.with_prediction_snapshot(function()
             return pick_n_centers('Tarot', 'car', count)
@@ -658,7 +627,7 @@ return function(FT)
         end
         -- Direct count only: Blueprint/Brainstorm cannot trigger Sixth Sense (card.lua:2603)
         local copies = U.count_direct_joker_copies('j_sixth_sense')
-        local count = consumeable_slot_count(card, copies)
+        local count = consumeable_slot_count(copies)
         if count == 0 then return nil end
         return U.with_prediction_snapshot(function()
             return pick_n_centers('Spectral', 'sixth', count)
@@ -674,7 +643,7 @@ return function(FT)
             end
         end
         local copies = U.count_joker_copies('j_seance')
-        local count = consumeable_slot_count(card, copies)
+        local count = consumeable_slot_count(copies)
         if count == 0 then return nil end
         return U.with_prediction_snapshot(function()
             return pick_n_centers('Spectral', 'sea', count)

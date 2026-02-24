@@ -18,8 +18,6 @@ return function(FT)
             panel_padding = 0.07 * k,
             badge_padding = 0.03 * k,
             frame_padding = 0.18 * k,
-            two_side_gap = 0.085 * k,
-            two_middle_gap = 0.02 * k,
             multi_gap = 0.05 * k,
             multi_side_gap = 0.1 * k,
             forecast_inner_pad = 0.04 * k,
@@ -147,16 +145,7 @@ return function(FT)
         local single_card_slot_width = math.max(layout.preview_w + layout.frame_padding, layout.tag_floor)
         local forecast_width = single_card_slot_width
 
-        if item_count == 2 then
-            forecast_width = total_items_width + (2 * layout.two_side_gap) + layout.two_middle_gap
-            add_gap(forecast_nodes, layout.two_side_gap, layout)
-            forecast_nodes[#forecast_nodes + 1] = elements[1].node
-            add_gap(forecast_nodes, layout.two_middle_gap, layout)
-            forecast_nodes[#forecast_nodes + 1] = elements[2].node
-            add_gap(forecast_nodes, layout.two_side_gap, layout)
-            forecast_inner_padding = 0
-            forecast_cards_padding = 0
-        elseif item_count > 2 then
+        if item_count > 1 then
             forecast_width = total_items_width + (2 * layout.multi_side_gap) + ((item_count - 1) * layout.multi_gap)
             add_gap(forecast_nodes, layout.multi_side_gap, layout)
             for i = 1, item_count do
