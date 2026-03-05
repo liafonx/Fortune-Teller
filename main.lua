@@ -31,6 +31,11 @@ end
 
 local log = (FT.Logger and FT.Logger.create and FT.Logger.create('Main')) or function() end
 
+local setup_config_ui = FT.load_module('UI/config_tabs.lua')
+if type(setup_config_ui) == 'function' then
+    setup_config_ui(FT)
+end
+
 local module_paths = {
     'Utils/utils.lua',
     'Core/run_state_hooks.lua',

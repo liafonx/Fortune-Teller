@@ -172,8 +172,4 @@ return function(FT)
         end
     end
 
-    local setup_config_ui = FT.load_module('UI/config_tabs.lua')
-    if type(setup_config_ui) == 'function' then
-        setup_config_ui(FT)
-    end
 end

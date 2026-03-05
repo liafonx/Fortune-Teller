@@ -492,6 +492,18 @@ return function(FT)
         return j
     end
 
+    -- Resolve a joker card object to its effective copied card through Blueprint/Brainstorm chains.
+    -- Returns the original card when not in the joker area or when the chain leads nowhere.
+    function U.resolve_effective_joker_card(card)
+        if not (card and G and G.jokers and G.jokers.cards) then return card end
+        for i = 1, #G.jokers.cards do
+            if G.jokers.cards[i] == card then
+                return U.resolve_effective_joker(i, {}) or card
+            end
+        end
+        return card
+    end
+
     -- Count effective copies of a joker effect through Blueprint/Brainstorm chains.
     -- Use for jokers that ARE Blueprint/Brainstorm-compatible (most scoring jokers).
     function U.count_joker_copies(center_key)
@@ -557,7 +569,7 @@ return function(FT)
     end
 
     function U.center_key_of(entry)
-        return entry and entry.config and entry.config.center and entry.config.center.key or 'nil'
+        return entry and entry.config and entry.config.center and entry.config.center.key
     end
 
     log("info", "Utility module initialized")

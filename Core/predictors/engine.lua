@@ -41,23 +41,6 @@ return function(FT)
     -- cannot trigger these jokers.
     local NON_BLUEPRINT_KEYS = {j_madness = true, j_sixth_sense = true}
 
-    -- Find position of card in G.jokers.cards (needed to call U.resolve_effective_joker).
-    local function joker_index(card)
-        if not (G and G.jokers and G.jokers.cards) then return nil end
-        for i, j in ipairs(G.jokers.cards) do
-            if j == card then return i end
-        end
-        return nil
-    end
-
-    -- Resolve hovered card to effective copied card (Blueprint/Brainstorm chain).
-    -- Returns nil when chain leads nowhere; returns card itself for non-copy jokers.
-    local function resolve_effective_card(start_card)
-        local idx = joker_index(start_card)
-        if not idx then return start_card end  -- not in joker area; return as-is
-        return U.resolve_effective_joker(idx, {})
-    end
-
     local function is_purple_seal_hand_highlight(card)
         return card
             and card.area == G.hand
@@ -84,7 +67,7 @@ return function(FT)
 
         -- Resolve Blueprint/Brainstorm hover to the effective copied card.
         -- For direct jokers, effective_card == card (no change in behavior).
-        local effective_card = resolve_effective_card(card)
+        local effective_card = U.resolve_effective_joker_card(card)
         if not effective_card then return nil end  -- chain leads nowhere → fall back to info box
 
         local effective_center_key = effective_card.config
